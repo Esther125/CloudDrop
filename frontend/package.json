@@ -12,6 +12,8 @@
     "axios": "^1.7.7",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.11.3",
+    "pinia": "^2.2.8",
+    "socket.io-client": "^4.8.1",
     "vue": "^3.5.12",
     "vue-router": "^4.4.5"
   },

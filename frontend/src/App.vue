@@ -1,17 +1,27 @@
 <script setup>
-import { RouterLink, RouterView } from 'vue-router';
-import { ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue';
+import { RouterLink, RouterView, useRouter } from 'vue-router';
+import { ref, reactive, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import axios from 'axios';
+import { useGlobalStore } from './stores/globals.js';
+import { io as ioc } from 'socket.io-client';
 
+/* ------------------------------
+   Variables
+-------------------------------- */
+const BE_API_BASE_URL = import.meta.env.VITE_BE_API_BASE_URL;
+const CHAT_SERVER_URL = import.meta.env.VITE_CHAT_SERVER_URL;
 const isDarkTheme = ref(false);
 const icon = ref();
-const device = ref('Default');
-const user = reactive({
-    id: '0000',
-});
-const token = ref();
-const apiUrl = import.meta.env.VITE_BE_API_BASE_URL;
+const characters = reactive(['', '', '', '', '']);
+const inputRefs = ref([]);
 
+const store = useGlobalStore();
+
+const router = useRouter();
+
+/* ------------------------------
+   Event Handlers
+-------------------------------- */
 const themeChangeHandler = (event) => {
     isDarkTheme.value = event.matches;
 };
@@ -26,22 +36,128 @@ const iconChange = (isDarkTheme) => {
 
 const roomModalHandler = async () => {
     try {
-        const response = await axios.post(apiUrl + '/rooms', { user: user });
-        token.value = response.data.token;
+        const storedRoomToken = sessionStorage.getItem('roomToken');
+        const storedQrCodeSrc = sessionStorage.getItem('qrCodeSrc');
+        console.log('storedRoomToken: ' + storedRoomToken)
+        console.log('global RoomToken: ' + store.roomToken)
+        if (!storedRoomToken) {
+            // call room create api
+            const { data } = await axios.post(`${BE_API_BASE_URL}/rooms`, { user: store.user });
+            store.roomToken = data.token;
+            store.qrCodeSrc = data.qrCodeDataUrl;
+            console.log('roomToken: ' + store.roomToken)
+            sessionStorage.setItem('roomToken', store.roomToken);
+            sessionStorage.setItem('qrCodeSrc', store.qrCodeSrc);
+
+            // websocket join room
+            if (store.clientSocket) {
+                store.clientSocket.emit('join chatroom', { roomToken: store.roomToken });
+                console.log('websocket join room')
+            }
+        } else {
+            store.roomToken = storedRoomToken
+            store.qrCodeSrc = storedQrCodeSrc
+        }
     } catch (error) {
         console.error('Error creating room: ', error);
     }
 };
 
+const moveToNext = async (index) => {
+    // 如果當前輸入框有值，且不是最後一個輸入框，則移動到下一個框
+    if (characters[index] && index < characters.length - 1) {
+        await nextTick(); // 等待 DOM 更新完成
+        inputRefs.value[index + 1]?.focus();
+    }
+};
+
+const handleBackspace = async (index) => {
+    // 如果按下 Backspace 且當前輸入框沒有值，則移動到前一個框
+    if (characters[index] === '' && index > 0) {
+        await nextTick(); // 等待 DOM 更新完成
+        inputRefs.value[index - 1]?.focus();
+    }
+};
+
+const joinRoom = async () => {
+    let inputRoomToken = characters.join('');
+    if (inputRoomToken.length === 5) {
+        store.roomToken = inputRoomToken
+        sessionStorage.setItem('roomToken', inputRoomToken);
+        const modalInstance = bootstrap.Modal.getInstance(roomModal);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+        router.push({ path: '/', query: { roomToken: inputRoomToken } });
+    } else {
+        alert('邀請碼不存在')
+    }
+}
+
+const AUTH_OPTIONS = (userID) => ({
+    auth: {
+        user: {
+            id: userID,
+        },
+    },
+});
+
+/* ------------------------------
+   Watchers
+-------------------------------- */
 watch(isDarkTheme, iconChange);
 
-onMounted(() => {
+/* ------------------------------
+   Lifecycle Hooks
+-------------------------------- */
+onMounted(async () => {
     // check theme
     isDarkTheme.value = window.matchMedia('(prefers-color-scheme: dark').matches;
     // add event listener
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeChangeHandler);
     // init icon
     iconChange(isDarkTheme.value);
+    
+    const storedUserId = sessionStorage.getItem('userId');
+    const storedRoomToken = sessionStorage.getItem('roomToken');
+    const storedQrCodeSrc = sessionStorage.getItem('qrCodeSrc');
+
+    // check if userId exists in SessionStorage
+    if (storedUserId) {
+        store.user.id = storedUserId; // Use the stored userId
+    } else {
+        // Fetch new userId and save to SessionStorage
+        const response = await axios.get(`${BE_API_BASE_URL}/`);
+        store.user.id = response.data.userId
+        sessionStorage.setItem('userId', response.data.userId); // Save to SessionStorage
+    }
+
+    // Check if roomToken exists in SessionStorage
+    if (storedRoomToken) {
+         // Use the stored roomToken, qrCodeSrc
+        store.roomToken = storedRoomToken;
+        store.qrCodeSrc = storedQrCodeSrc;
+        const { data } = await axios.post(`${BE_API_BASE_URL}/rooms/${store.roomToken}/members`);
+        store.members = data.members
+    }
+
+    // Build WebSocket connection
+    store.clientSocket = ioc(CHAT_SERVER_URL, AUTH_OPTIONS(store.user.id));
+
+    // Listen websocket
+    store.clientSocket.on('system message', async (res) => {
+        console.log('WebSocket - system message');
+        console.log(res)
+    });
+
+    store.clientSocket.on('room notify', async (res) => {
+        console.log(res)
+        if (res.roomToken === store.roomToken & res.type === 'join') {
+            const { data } = await axios.post(`${BE_API_BASE_URL}/rooms/${store.roomToken}/members`);
+            store.members = data.members
+            router.push({ path: '/', query: { roomToken: store.roomToken, needJoinRoom: 'false' } });
+        }
+    });
 });
 
 onBeforeUnmount(() => {
@@ -58,11 +174,11 @@ onBeforeUnmount(() => {
                 CloudDrop
             </a>
             <div class="d-flex justify-content-end align-items-center">
-                <div class="link" data-bs-toggle="modal" data-bs-target="#roomModal">
+                <div class="mx-1" data-bs-toggle="modal" data-bs-target="#roomModal">
                     <i class="bi bi-people-fill h3 icon" @click="roomModalHandler"></i>
                 </div>
 
-                <li class="nav-item dropdown">
+                <li class="nav-item dropdown mx-1">
                     <a
                         class="nav-link dropdown-toggle"
                         href="#"
@@ -79,12 +195,12 @@ onBeforeUnmount(() => {
                     >
                         <li>
                             <RouterLink to="/about" class="dropdown-item">
-                                <i class="bi bi-collection-fill h5 icon"></i> Temporary Storage
+                                <i class="bi bi-collection-fill h5 icon me-1"></i> Temporary Storage
                             </RouterLink>
                         </li>
                         <li>
                             <RouterLink to="/history" class="dropdown-item">
-                                <i class="bi bi-clock-history h5 icon"></i> History
+                                <i class="bi bi-clock-history h5 icon  me-1"></i> History
                             </RouterLink>
                         </li>
                     </ul>
@@ -93,34 +209,53 @@ onBeforeUnmount(() => {
         </div>
     </nav>
 
-    <div>
+    <div class="d-flex align-items-center router-view-container">
         <RouterView />
 
         <!-- Room Modal -->
         <div class="modal fade" id="roomModal" tabindex="-1" aria-labelledby="roomModalLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
-                    <div class="modal-header">
+                    <div class="modal-header pt-3 pb-2 border-0">
                         <h5 class="modal-title" id="roomModalLabel">創建或加入房間</h5>
                     </div>
-                    <div class="modal-body d-flex justify-content-center">
-                        <div v-for="(letter, index) in token" :key="index" class="letter-box">
-                            {{ letter }}
+                    <div class="modal-body d-flex flex-column">
+                        <div class="d-flex justify-content-center mb-3">
+                            <div v-for="(letter, index) in store.roomToken" :key="index" class="letter-box">
+                                {{ letter }}
+                            </div>
+                        </div>
+                        <div>
+                            <img :src="store.qrCodeSrc" />
+                        </div>
+                        <div class="d-flex flex-row justify-content-center">
+                            <div v-for="(char, index) in characters" :key="index" class="me-2 mt-4">
+                                <input
+                                    type="text"
+                                    maxlength="1"
+                                    class="form-control text-center input-box"
+                                    v-model="characters[index]"
+                                    @input="moveToNext(index)"
+                                    @keydown.backspace="handleBackspace(index)"
+                                    ref="inputRefs"
+                                    :ref="el => inputRefs.value[index] = el"
+                                />
+                            </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-
+                    <div class="modal-footer justify-content-center border-0">
+                        <button class="btn btn-secondary" type="submit" @click="joinRoom">加入</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <nav class="navbar navbar-expand-md fixed-bottom d-flex justify-content-center navbar-bottom">
-        <div class="card">
-            <div class="card-body d-flex justify-content-center">
-                <p class="card-text">裝置名稱：{{ device }}</p>
-            </div>
+    <nav class="navbar navbar-expand-md fixed-bottom justify-content-center navbar-bottom">
+        <div class="d-flex justify-content-center align-items-center mb-2">
+                <p class="mx-1 mb-0 p-1">裝置名稱：{{ store.user.id.slice(0, 8) }}</p>
+                <p class="mb-0 p-1" v-if="store.roomToken">|</p>
+                <p class="mx-1 mb-0 p-1" v-if="store.roomToken">可見於 {{ store.roomToken }} 房間中</p>
         </div>
     </nav>
 </template>
@@ -144,17 +279,9 @@ onBeforeUnmount(() => {
     color: var(--color-text);
 }
 
-.link {
-    margin: 0px 10px;
-}
-
 .dropdown .ul .li {
     background-color: var(--color-background-mute);
     color: var(--color-text);
-}
-
-.dropdown-item .icon {
-    margin-right: 5px;
 }
 
 .navbar-brand {
@@ -174,15 +301,6 @@ li {
     list-style-type: none;
 }
 
-.card {
-    background-color: var(--color-card-background);
-}
-
-.modal-header, .modal-footer {
-    border-bottom: 0px;
-    border-top: 0px;
-}
-
 .modal-content {
     background-color: var(--color-background-soft);
     color: var(--color-text);
@@ -198,15 +316,26 @@ li {
 }
 
 .letter-box {
-  height: 100%;
-  width: 6%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* border: 1px solid #000; */
-  border-radius: 10px;
-  background-color: var(--color-modal-text-background);
-  font-weight: bolder;
-  margin: 0 3px;
+    height: 100%;
+    width: 6%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background-color: var(--color-modal-text-background);
+    font-weight: bolder;
+    margin: 0 3px;
+}
+
+.input-box {
+    width: 50px;
+    height: 50px;
+    text-align: center;
+}
+
+.router-view-container {
+    flex: 1;
+    height: calc(100vh - 116px);
+    margin-top: 58px;
 }
 </style>

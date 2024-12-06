@@ -1,12 +1,9 @@
 import crypto from 'crypto';
-import RedisClient from '../clients/redisClient.js';
+import redisClient from '../clients/redisClient.js';
+import QRCode from 'qrcode';
+import { logWithFileInfo } from '../../logger.js';
 
 class RoomService {
-    constructor() {
-        this._rooms = {};
-        this._redis = new RedisClient();
-    }
-
     _createToken = () => {
         let token = '';
 
@@ -22,47 +19,44 @@ class RoomService {
     };
 
     createRoom = async (userId) => {
-        console.log(`[RoomService] createRoom() called with userId: ${userId}`);
+        logWithFileInfo('info', `[RoomService] createRoom called with userId: ${userId}`);
 
-        await this._redis.connect();
+        await redisClient.connect();
 
         // 1. check whether user has been in a room or not
-        let token = await this._redis.get(`userId:${userId}`);
+        let token = await redisClient.get(`userId:${userId}`);
         let members;
         if (token !== null) {
-            console.log(`[RoomService] User ${userId} has already in the room ${token}`);
-            members = await this._redis.sGet(token);
-            this._redis.quit();
+            logWithFileInfo('info', `[RoomService] User ${userId} has already in the room ${token}`);
+            members = await redisClient.sGet(token);
             return { token, members };
         }
 
         // 2. create room token
         token = this._createToken();
         // make sure the token is unique
-        members = await this._redis.sGet(token);
+        members = await redisClient.sGet(token);
         while (members.length !== 0) {
-            console.log('[RoomService] Token collision detected. Generating a new token');
+            logWithFileInfo('info', '[RoomService] Token collision detected. Generating a new token');
             token = this._createToken();
-            members = await this._redis.sGet(token);
+            members = await redisClient.sGet(token);
         }
         members = [userId];
 
         // 3. add user to redis
-        await this._redis.sAdd(token, userId);
-        await this._redis.set(`userId:${userId}`, token);
-        await this._redis.setExpire(token, 8 * 3600);
-        await this._redis.setExpire(`userId:${userId}`, 8 * 3600);
+        await redisClient.sAdd(token, userId);
+        await redisClient.set(`userId:${userId}`, token);
+        await redisClient.setExpire(token, 8 * 3600);
+        await redisClient.setExpire(`userId:${userId}`, 8 * 3600);
 
-        await this._redis.quit();
-
-        console.log(`[RoomService] Room created successfully with token: ${token}`);
+        logWithFileInfo('info', `[RoomService] Room created successfully with token: ${token}`);
         return { token, members };
     };
 
     joinRoom = async (userId, token) => {
-        console.log('[RoomService] joinRoom() called with userId:', userId, 'and token:', token);
+        logWithFileInfo('info', '[RoomService] joinRoom called with userId:', userId, 'and token:', token);
 
-        await this._redis.connect();
+        await redisClient.connect();
 
         const inTargetRoom = await this._leaveRoom(userId, token);
         let message;
@@ -70,29 +64,26 @@ class RoomService {
 
         if (inTargetRoom) {
             message = `already in target room ${token}`;
-            members = await this._redis.sGet(token);
-            console.log(`[RoomService] User ${userId} have already in target room ${token}`);
-            await this._redis.quit();
+            members = await redisClient.sGet(token);
+            logWithFileInfo('info', `[RoomService] User ${userId} have already in target room ${token}`);
             return { message, members };
         }
 
-        const roomExist = await this._redis.sExist(token);
+        const roomExist = await redisClient.sExist(token);
         if (!roomExist) {
             message = `room ${token} has not been created`;
-            console.log(`[RoomService] Room ${token} has not been created`);
-            await this._redis.quit();
+            logWithFileInfo('info', `[RoomService] Room ${token} has not been created`);
             return { message, members: [] };
         }
 
-        await this._redis.sAdd(token, userId);
-        await this._redis.set(`userId:${userId}`, token);
-        await this._redis.setExpire(`userId:${userId}`, 8 * 3600);
+        await redisClient.sAdd(token, userId);
+        await redisClient.set(`userId:${userId}`, token);
+        await redisClient.setExpire(`userId:${userId}`, 8 * 3600);
         message = `join target room ${token} successfully`;
 
-        members = await this._redis.sGet(token);
+        members = await redisClient.sGet(token);
 
-        console.log(`[RoomService] User ${userId} have join the room ${token}`);
-        await this._redis.quit();
+        logWithFileInfo('info', `[RoomService] User ${userId} have join the room ${token}`);
 
         return { message, members };
     };
@@ -106,27 +97,46 @@ class RoomService {
          * return false: if user not in target room
          */
 
-        console.log(`[RoomService] Check User ${userId} in target room or not`);
+        logWithFileInfo('info', `[RoomService] Check User ${userId} in target room or not`);
 
         // 1. Check user is in room or not
-        const tokenFromRedis = await this._redis.get(`userId:${userId}`);
+        const tokenFromRedis = await redisClient.get(`userId:${userId}`);
         if (tokenFromRedis === token) {
             // have already in the target room
-            console.log(`[RoomService] User ${userId} has already in the room ${token}`);
+            logWithFileInfo('info', `[RoomService] User ${userId} has already in the room ${token}`);
             return true;
         } else if (tokenFromRedis === null) {
             // not in any room now
-            console.log(`[RoomService] User ${userId} is not in any room now`);
+            logWithFileInfo('info', `[RoomService] User ${userId} is not in any room now`);
             return false;
         }
 
         // 2. Leave room
-        await this._redis.sRem(tokenFromRedis, userId);
-        await this._redis.del(`userId:${userId}`);
+        await redisClient.sRem(tokenFromRedis, userId);
+        await redisClient.del(`userId:${userId}`);
 
-        console.log(`[RoomService] User ${userId} have leave the room ${tokenFromRedis}`);
+        logWithFileInfo('info', `[RoomService] User ${userId} have leave the room ${tokenFromRedis}`);
 
         return false;
+    };
+
+    createQRCode = async (url) => {
+        try {
+            const qrCodeDataUrl = await QRCode.toDataURL(url);
+            logWithFileInfo('info', 'qrCode create success');
+            return qrCodeDataUrl;
+        } catch (err) {
+            logWithFileInfo('error', 'qrCode create error: ', err);
+            return null;
+        }
+    };
+
+    getMembers = async (token) => {
+        try {
+            await redisClient.connect();
+            let members = await redisClient.sGet(token);
+            return { members };
+        } catch (err) {}
     };
 }
 
