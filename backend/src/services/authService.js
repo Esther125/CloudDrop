@@ -1,27 +1,11 @@
-import { userInfo } from 'os';
 import DynamodbService from './dynamodbService.js';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 class AuthService {
     constructor() {
         this._dynamodbService = new DynamodbService();
     }
-
-    _hashPassword = (password, passwordSalt) => {
-        return crypto.pbkdf2Sync(password, passwordSalt, 1000, 64, 'sha512').toString('hex');
-    };
-
-    _getUserIDFromLabel = (label) => {
-        return label.split('#')[1];
-    };
-
-    _hidePasswordInfo = (userInfo) => {
-        return {
-            userID: this._getUserIDFromLabel(userInfo.pk),
-            email: userInfo.email,
-            userName: userInfo.userName,
-        };
-    };
 
     register = async (userID, email, password, userName) => {
         console.log(`[AuthService] ${email} try to register`);
@@ -52,6 +36,22 @@ class AuthService {
         };
     };
 
+    _hashPassword = (password, passwordSalt) => {
+        return crypto.pbkdf2Sync(password, passwordSalt, 1000, 64, 'sha512').toString('hex');
+    };
+
+    _getUserIDFromLabel = (label) => {
+        return label.split('#')[1];
+    };
+
+    _hidePasswordInfo = (userInfo) => {
+        return {
+            userID: this._getUserIDFromLabel(userInfo.pk),
+            email: userInfo.email,
+            userName: userInfo.userName,
+        };
+    };
+
     login = async (email, password) => {
         // login
         console.log(`[AuthService] ${email} try to login`);
@@ -70,8 +70,21 @@ class AuthService {
             return { success: false, error: 'Invalid password' };
         }
 
-        // 3. login successfully
-        return { success: true, data: this._hidePasswordInfo(userInfo) };
+        // 3. JWT
+        const userData = this._hidePasswordInfo(userInfo);
+        const accessToken = this.generateAccessToken(userData);
+        const refreshToken = jwt.sign(userData, process.env.REFRESH_TOKEN_SECRET, {
+            expiresIn: '7d',
+        });
+
+        // 4. login successfully
+        return { success: true, data: userData, tokens: { accessToken, refreshToken } };
+    };
+
+    generateAccessToken = (userData) => {
+        return jwt.sign(userData, process.env.ACCESS_TOKEN_SECRET, {
+            expiresIn: '30m',
+        });
     };
 }
 

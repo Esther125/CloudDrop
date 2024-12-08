@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import pkg from 'body-parser';
+import cookieParser from 'cookie-parser';
 import homeRouter from './src/routes/homeRouter.js';
 import sampleRouters from './src/routes/sampleRoutes.js';
 import authRouters from './src/routes/authRoutes.js';
@@ -15,7 +16,12 @@ import chatRouter from './src/routes/chatRouter.js';
 
 // express
 const app = express();
-app.use(cors());
+app.use(
+    cors({
+        origin: process.env.FE_SOURCE,
+        credentials: true,
+    })
+);
 
 // Middleware: parse request body to json format
 const { json } = pkg;
@@ -29,6 +35,9 @@ app.use((req, res, next) => {
 
 // Middleware：file upload
 app.use(fileUpload());
+
+// Middleware: cookie parser
+app.use(cookieParser());
 
 // use routes
 app.use('/api/v1', homeRouter);
