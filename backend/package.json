@@ -24,7 +24,8 @@
         "redis": "^4.7.0",
         "socket.io": "^4.8.1",
         "uuid": "^11.0.3",
-        "winston": "^3.17.0"
+        "winston": "^3.17.0",
+        "qrcode": "^1.5.4"
     },
     "devDependencies": {
         "chai": "^5.1.2",
