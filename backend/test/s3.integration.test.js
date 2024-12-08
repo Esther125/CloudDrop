@@ -17,6 +17,9 @@ const testUpload = async () => {
         const userResult = await s3Service.uploadFile(mockFile, mockFilename, 'user', mockUserId);
         console.log('User Upload Success:', userResult);
 
+        const fileList = await s3Service.getFileList(mockUserId); 
+        console.log('User File List:', fileList);
+
         const userUrlResult = await s3Service.generatePresignedUrl(mockFilename, 'user', mockUserId);
         console.log(`User generate presigned Url Success`);
 
