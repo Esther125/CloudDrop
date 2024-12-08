@@ -15,7 +15,7 @@
 
 **儲存結構：**
 
-<img src="../assets/table_schema/dynamodb.drawio.png">
+<img src="../assets/table_schema/dynamodb.drawio.png" width="60%">
 
 **Table 結構：**
 
@@ -23,11 +23,11 @@
 
 1.  **[ TABLE ] UserTransferRecord**
 
-    <img src="../assets/table_schema/dynamodb_main.png">
+    <img src="../assets/table_schema/dynamodb_main.png" width="50%">
 
     儲存形式範例：
 
-    <img src="../assets/table_schema/dynamodb_main_ex.png">
+    <img src="../assets/table_schema/dynamodb_main_ex.png" width="60%">
 
     結構設計對應功能：
 
@@ -46,11 +46,11 @@
 
 2.  **[ GSI ] ByEmail**
 
-    <img src="../assets/table_schema/dynamodb_gsi_byemail.png">
+    <img src="../assets/table_schema/dynamodb_gsi_byemail.png" width="50%">
 
     儲存形式範例：
 
-    <img src="../assets/table_schema/dynamodb_gsi_byemail_ex.png">
+    <img src="../assets/table_schema/dynamodb_gsi_byemail_ex.png" width="60%">
 
     結構設計對應功能：
 

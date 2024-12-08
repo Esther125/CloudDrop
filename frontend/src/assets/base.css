@@ -3,10 +3,12 @@
   --vt-c-white: #ffffff;
   --vt-c-white-soft: #f8f8f8;
   --vt-c-white-mute: #f2f2f2;
+  --vt-c-white-1: rgb(202, 202, 202);
 
   --vt-c-black: #181818;
   --vt-c-black-soft: #222222;
   --vt-c-black-mute: #282828;
+  --vt-c-black-1: rgb(86, 86, 86);
 
   --vt-c-indigo: #2c3e50;
 
@@ -36,6 +38,7 @@
   --section-gap: 160px;
 
   --color-card-background: var(--vt-c-white-soft);
+  --color-modal-text-background: var(var(--vt-c-white-1));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -51,6 +54,7 @@
     --color-text: var(--vt-c-text-dark-2);
 
     --color-card-background: var(--vt-c-white-soft);
+    --color-modal-text-background: var(--vt-c-black-1);
   }
 }
 

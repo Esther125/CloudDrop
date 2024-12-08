@@ -5,6 +5,6 @@ const roomsRouter = Router();
 const roomsController = new RoomsController();
 
 roomsRouter.post('/rooms', roomsController.createRoom);
-roomsRouter.post('/rooms/:roomId/join', roomsController.joinRoom);
+roomsRouter.post('/rooms/:roomToken/join', roomsController.joinRoom);
 
 export default roomsRouter;

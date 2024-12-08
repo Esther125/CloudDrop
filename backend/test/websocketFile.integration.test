@@ -1,0 +1,95 @@
+import { expect } from 'chai';
+import { io as ioc } from 'socket.io-client';
+
+const FILE_SERVER_URL = `http://localhost:3000/file`;
+const AUTH_OPTIONS = (userID) => ({
+    auth: {
+        user: {
+            id: userID,
+        },
+    },
+});
+
+describe('File Transfer WebSocket Tests', () => {
+    let clientSocket;
+
+    afterEach(async () => {
+        if (clientSocket.connected) {
+            clientSocket.disconnect();
+        }
+    });
+
+    it('should connect to the server and receive a successful connection system message', (done) => {
+        clientSocket = ioc(FILE_SERVER_URL, AUTH_OPTIONS('user1'));
+
+        clientSocket.on('system message', (res) => {
+            try {
+                expect(res.event).to.equal('system message');
+                expect(res.message.stage).to.equal('connect');
+                expect(res.message.status).to.equal('success');
+                done();
+            } catch (error) {
+                done(error);
+            }
+        });
+    });
+
+    it('should fail to connect without authentication and receive an error message', (done) => {
+        clientSocket = ioc(FILE_SERVER_URL);
+
+        clientSocket.on('system message', (res) => {
+            try {
+                expect(res.event).to.equal('system message');
+                expect(res.message.stage).to.equal('connect');
+                expect(res.message.status).to.equal('fail');
+                expect(res.message.content).to.include('userID required');
+                done();
+            } catch (error) {
+                done(error);
+            }
+        });
+    });
+
+    it('should handle file transfer request and notify success', (done) => {
+        clientSocket = ioc(FILE_SERVER_URL, AUTH_OPTIONS('user1'));
+
+        clientSocket.on('connect', () => {
+            clientSocket.emit('request file send', {
+                roomToken: 'room1',
+                receiverID: 'user2',
+                fileID: 'file123',
+            });
+        });
+
+        clientSocket.on('system message', (res) => {
+            try {
+                expect(res.event).to.equal('system message');
+                expect(res.message.stage).to.equal('file transfer notify');
+                expect(res.message.status).to.equal('success');
+                done();
+            } catch (error) {
+                done(error);
+            }
+        });
+    });
+
+    it('should receive a failure message when requesting transfer with missing values', (done) => {
+        clientSocket = ioc(FILE_SERVER_URL, AUTH_OPTIONS('user1'));
+
+        clientSocket.on('connect', () => {
+            clientSocket.emit('request file send', {}); // Missing necessary payload
+        });
+
+        clientSocket.on('system message', (res) => {
+            try {
+                expect(res.event).to.equal('system message');
+                expect(res.message.stage).to.equal('file transfer notify');
+                expect(res.message.status).to.equal('fail');
+                expect(res.message.content).to.include('missing values');
+                done();
+            } catch (error) {
+                done(error);
+            }
+        });
+    });
+});

@@ -2,3 +2,10 @@
 node_modules
 **/.env
 **/.vscode/*
+
+# 忽略 backend/uploads 中的所有文件
+/backend/uploads/*
+# 但不忽略資料夾本身
+!/backend/uploads/.gitkeep
+
+/backend/logs/*

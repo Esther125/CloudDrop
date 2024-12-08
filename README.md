@@ -18,3 +18,4 @@
 
 -   [Pre-commit 設定](docs/project_setup/pre-commit_setup.md)
 -   [專案初始化](docs/project_setup/project_init.md)
+-   [Redis](docs/project_setup/redis.md)
