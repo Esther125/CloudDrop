@@ -1,4 +1,5 @@
 import ChatService from '../services/chatService.js';
+import { logWithFileInfo } from '../../logger.js';
 
 class ChatController {
     constructor() {
@@ -7,7 +8,7 @@ class ChatController {
 
     connect = (socket) => {
         // connect to server (/chat)
-        console.log('[chatController] -----connect-----');
+        logWithFileInfo('info', '[chatController] -----connect-----');
 
         try {
             const userID = socket.handshake.auth?.user?.id || null;
@@ -17,12 +18,12 @@ class ChatController {
                 this.chatService.connect(socket, userID);
             }
         } catch {
-            console.error(`[chatController] Error when connecting chat websocket`);
+            logWithFileInfo('error', `[chatController] Error when connecting chat websocket`);
         }
     };
 
     joinChatroom = (socket, payload) => {
-        console.log('[chatController] -----joinChatroom-----');
+        logWithFileInfo('info', '[chatController] -----joinChatroom-----');
         const userID = socket.handshake.auth.user.id;
 
         try {
@@ -33,13 +34,13 @@ class ChatController {
                 this.chatService.joinChatroom(socket, roomToken);
             }
         } catch {
-            console.error(`[chatController] Error when joining chatroom for ${userID}`);
+            logWithFileInfo('error', `[chatController] Error when joining chatroom for ${userID}`);
             this.chatService.systemMessage(socket, 'join chatroom', 'error', 'error');
         }
     };
 
     requestTransfer = (socket, payload, chatNameSpace) => {
-        console.log('[chatController] -----requestTransfer-----');
+        logWithFileInfo('info', '[chatController] -----requestTransfer-----');
         const userID = socket.handshake.auth.user.id;
 
         try {
@@ -51,13 +52,13 @@ class ChatController {
                 this.chatService.requestTransfer(socket, roomToken, receiverID, chatNameSpace);
             }
         } catch {
-            console.error(`[chatController] Error when user ${userID} request transfer`);
+            logWithFileInfo('error', `[chatController] Error when user ${userID} request transfer`);
             this.chatService.systemMessage(socket, 'request transfer', 'error', 'error');
         }
     };
 
     chatMessage = (socket, payload) => {
-        console.log('[chatController] -----chatMessage-----');
+        logWithFileInfo('info', '[chatController] -----chatMessage-----');
         const userID = socket.handshake.auth.user.id;
 
         try {
@@ -69,13 +70,13 @@ class ChatController {
                 this.chatService.chatMessage(socket, roomToken, message);
             }
         } catch {
-            console.error(`[chatController] Error when user ${userID} send chat message`);
+            logWithFileInfo('error', `[chatController] Error when user ${userID} send chat message`);
             this.chatService.systemMessage(socket, 'chat message', 'error', 'error');
         }
     };
 
     leaveChatroom = (socket, payload) => {
-        console.log('[chatController] -----leaveChatroom-----');
+        logWithFileInfo('info', '[chatController] -----leaveChatroom-----');
         const userID = socket.handshake.auth.user.id;
 
         try {
@@ -86,18 +87,18 @@ class ChatController {
                 this.chatService.leaveChatroom(socket, roomToken);
             }
         } catch {
-            console.error(`[chatController] Error when leaving chatroom for ${userID}`);
+            logWithFileInfo('error', `[chatController] Error when leaving chatroom for ${userID}`);
             this.chatService.systemMessage(socket, 'leave chatroom', 'error', 'error');
         }
     };
 
     disconnect = (socket, reason) => {
-        console.log('[chatController] -----disconnect-----');
+        logWithFileInfo('info', '[chatController] -----disconnect-----');
         this.chatService.disconnect(socket, reason);
     };
 
     invalidEvent = (socket) => {
-        console.log('[chatController] -----invalid event-----');
+        logWithFileInfo('info', '[chatController] -----invalid event-----');
         this.chatService.systemMessage(socket, 'invalid event', 'fail', 'invalid event');
     };
 }

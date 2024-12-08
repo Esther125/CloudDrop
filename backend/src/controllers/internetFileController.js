@@ -1,6 +1,5 @@
 import InternetFileService from '../services/internetFileService.js';
 import path from 'path';
-
 import { logWithFileInfo } from '../../logger.js';
 
 class InternetFileController {
@@ -9,35 +8,38 @@ class InternetFileController {
     }
 
     upload = async (req, res) => {
-        logWithFileInfo('info', '----InternetFileController.upload');
+        logWithFileInfo('info', '[InternetFileController] -----upload-----');
         try {
             const filename = await this.internetFileService.upload(req, res);
             const fileId = path.basename(filename, path.extname(filename));
             res.status(200).json({ message: 'File uploaded successfully.', fileId: fileId });
         } catch (error) {
-            logWithFileInfo('info', '----InternetFileController.download');
+            logWithFileInfo('error', '[InternetFileController] Error uploading the file');
             res.status(500).json({ message: 'Failed to upload the file.', error: error.message });
         }
     };
 
     download = async (req, res) => {
-        console.log('----InternetFileController.download');
+        logWithFileInfo('info', '[InternetFileController] -----download-----');
         try {
             await this.internetFileService.download(req, res);
-            console.info('File donwloaded successfully.');
+            logWithFileInfo('info', '[InternetFileController] File donwloaded successfully.');
         } catch (error) {
-            console.error('Error downloading file: ', error);
-            res.status(500).json({ message: 'Failed to download the file.', error: error.message });
+            logWithFileInfo('error', 'Error downloading file: ', error);
+            res.status(500).json({
+                message: 'Failed to download the file.',
+                error: error.message,
+            });
         }
     };
 
     deleteFile = async (req, res) => {
-        console.log('----InternetFileController.deleteFile');
+        logWithFileInfo('info', '[InternetFileController] -----deleteFile-----');
         try {
             await this.internetFileService.deleteFile(req, res);
-            console.info('File deleted successfully.');
+            logWithFileInfo('info', '[InternetFileController] File deleted successfully.');
         } catch (error) {
-            console.error('Error deleting file: ', error);
+            logWithFileInfo('error', '[InternetFileController] Error deleting file: ', error);
             const errorMsg = { message: 'Failed to delete the file', error: error.message };
             if (error.message === 'File not found') {
                 res.status(404).send(errorMsg);

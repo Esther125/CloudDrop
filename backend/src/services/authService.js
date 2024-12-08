@@ -1,6 +1,7 @@
 import { userInfo } from 'os';
 import DynamodbService from './dynamodbService.js';
 import crypto from 'crypto';
+import { logWithFileInfo } from '../../logger.js';
 
 class AuthService {
     constructor() {
@@ -24,7 +25,7 @@ class AuthService {
     };
 
     register = async (userID, email, password, userName) => {
-        console.log(`[AuthService] ${email} try to register`);
+        logWithFileInfo('info', `[AuthService] ${email} try to register`);
 
         // check registered or not
         let create;
@@ -32,11 +33,11 @@ class AuthService {
 
         if (userInfo !== null) {
             // registered
-            console.log(`[AuthService] ${email} already registered`);
+            logWithFileInfo('warn', `[AuthService] ${email} already registered`);
             create = false;
         } else {
             // not yet registered
-            console.log(`[AuthService] ${email} not registered yet`);
+            logWithFileInfo('info', `[AuthService] ${email} not registered yet`);
             const passwordSalt = crypto.randomBytes(16).toString('hex');
             const passwordHash = this._hashPassword(password, passwordSalt);
             await this._dynamodbService.createUserInfo(userID, email, passwordSalt, passwordHash, userName);
@@ -44,7 +45,7 @@ class AuthService {
             create = true;
             userInfo = await this._dynamodbService.getUserInfoFromEmail(email);
 
-            console.log(`[AuthService] ${email} successfully registered`);
+            logWithFileInfo('info', `[AuthService] ${email} successfully registered`);
         }
         return {
             create,
@@ -54,19 +55,19 @@ class AuthService {
 
     login = async (email, password) => {
         // login
-        console.log(`[AuthService] ${email} try to login`);
+        logWithFileInfo('info', `[AuthService] ${email} try to login`);
 
         // 1. get related user info
         let userInfo = await this._dynamodbService.getUserInfoFromEmail(email);
         if (userInfo === null) {
             // not yet registered
-            console.log(`[AuthService] ${email} not yet registered`);
+            logWithFileInfo('warn', `[AuthService] ${email} not yet registered`);
             return { success: false, error: 'Not yet registered' };
         }
         // 2. check password
         const passwordSalt = userInfo.passwordSalt;
         if (this._hashPassword(password, passwordSalt) !== userInfo.passwordHash) {
-            console.log(`[AuthService] ${email} login with invalid password`);
+            logWithFileInfo('info', `[AuthService] ${email} login with invalid password`);
             return { success: false, error: 'Invalid password' };
         }
 

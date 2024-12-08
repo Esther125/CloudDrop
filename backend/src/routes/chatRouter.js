@@ -36,7 +36,7 @@ const chatRouter = (chatNameSpace) => {
 
         socket.on('error', (e) => {
             // error
-            console.log(`Error in websocket for chat: ${e}`);
+            logWithFileInfo('error', `Error in websocket for chat: ${e}`);
         });
 
         socket.onAny((event) => {
