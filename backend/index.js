@@ -7,6 +7,7 @@ import authRouters from './src/routes/authRoutes.js';
 import internetFileRouter from './src/routes/internetFileRoutes.js';
 import roomsRouter from './src/routes/roomsRouter.js';
 import profileRouter from './src/routes/ProfileRoutes.js';
+import historyRouter from './src/routes/historyRoutes.js';
 import { logWithFileInfo } from './logger.js';
 import fileUpload from 'express-fileupload';
 import http from 'http';
@@ -37,6 +38,7 @@ app.use('/api/v1', authRouters);
 app.use('/api/v1', internetFileRouter);
 app.use('/api/v1', roomsRouter);
 app.use('/api/v1', profileRouter);
+app.use('/api/v1', historyRouter);
 
 // websocket
 const httpServer = http.createServer(app);

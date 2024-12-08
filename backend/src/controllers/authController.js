@@ -1,4 +1,6 @@
 import AuthService from '../services/authService.js';
+import { logWithFileInfo } from '../../logger.js';
+
 class AuthController {
     constructor() {
         this.authService = new AuthService();
@@ -9,11 +11,11 @@ class AuthController {
             .filter(([_, value]) => value === undefined)
             .map(([key, _]) => key);
         res.status(400).json({ message: `${missingValues.join(', ')} is required` });
-        console.log('[AuthController] bad request with missing values');
+        logWithFileInfo('info', 'bad request with missing values');
     };
 
     register = async (req, res) => {
-        console.log('[AuthController] -----register-----');
+        logWithFileInfo('info', '-----register-----');
         const { userID, email, password, userName } = req.body;
         if (!userID || !email || !password || !userName) {
             this._reqWithMissingValue(res, { userID, email, password, userName });
@@ -27,14 +29,14 @@ class AuthController {
             } else {
                 res.status(200).json({ message: 'User already registered', data: userInfo.data });
             }
-        } catch {
-            console.error(`[AuthController] error when ${email} try to register`);
+        } catch (error) {
+            logWithFileInfo('error', `error when ${email} try to register`, error);
             res.status(500).json({ message: `Error when ${email} try to register` });
         }
     };
 
     login = async (req, res) => {
-        console.log('[AuthController] -----login-----');
+        logWithFileInfo('info', '-----login-----');
         const { email, password } = req.body;
         if (!email || !password) {
             this._reqWithMissingValue(res, { email, password });
@@ -48,14 +50,14 @@ class AuthController {
             } else {
                 res.status(401).json({ message: loginResult.error });
             }
-        } catch {
-            console.error(`[AuthController] error when ${email} try to login`);
+        } catch (error) {
+            logWithFileInfo('error', `error when ${email} try to login`, error);
             res.status(500).json({ message: `Error when ${email} try to login` });
         }
     };
 
     logout = async (req, res) => {
-        console.log('[AuthController] -----logout-----');
+        logWithFileInfo('info', '-----logout-----');
         // TODO: 實現登出邏輯
         res.status(200).json({ message: 'Logout logic not implemented yet' });
     };

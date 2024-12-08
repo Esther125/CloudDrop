@@ -1,11 +1,40 @@
-import { userInfo } from 'os';
 import DynamodbService from './dynamodbService.js';
 import crypto from 'crypto';
+import { logWithFileInfo } from '../../logger.js';
 
 class AuthService {
     constructor() {
         this._dynamodbService = new DynamodbService();
     }
+
+    register = async (userID, email, password, userName) => {
+        logWithFileInfo('info', `${email} try to register`);
+
+        // check registered or not
+        let create;
+        let userInfo = await this._dynamodbService.getUserInfoFromEmail(email);
+
+        if (userInfo !== null) {
+            // registered
+            logWithFileInfo('info', `${email} already registered`);
+            create = false;
+        } else {
+            // not yet registered
+            logWithFileInfo('info', `${email} not registered yet`);
+            const passwordSalt = crypto.randomBytes(16).toString('hex');
+            const passwordHash = this._hashPassword(password, passwordSalt);
+            await this._dynamodbService.createUserInfo(userID, email, passwordSalt, passwordHash, userName);
+
+            create = true;
+            userInfo = await this._dynamodbService.getUserInfoFromEmail(email);
+
+            logWithFileInfo('info', `${email} successfully registered`);
+        }
+        return {
+            create,
+            data: this._hidePasswordInfo(userInfo),
+        };
+    };
 
     _hashPassword = (password, passwordSalt) => {
         return crypto.pbkdf2Sync(password, passwordSalt, 1000, 64, 'sha512').toString('hex');
@@ -23,50 +52,21 @@ class AuthService {
         };
     };
 
-    register = async (userID, email, password, userName) => {
-        console.log(`[AuthService] ${email} try to register`);
-
-        // check registered or not
-        let create;
-        let userInfo = await this._dynamodbService.getUserInfoFromEmail(email);
-
-        if (userInfo !== null) {
-            // registered
-            console.log(`[AuthService] ${email} already registered`);
-            create = false;
-        } else {
-            // not yet registered
-            console.log(`[AuthService] ${email} not registered yet`);
-            const passwordSalt = crypto.randomBytes(16).toString('hex');
-            const passwordHash = this._hashPassword(password, passwordSalt);
-            await this._dynamodbService.createUserInfo(userID, email, passwordSalt, passwordHash, userName);
-
-            create = true;
-            userInfo = await this._dynamodbService.getUserInfoFromEmail(email);
-
-            console.log(`[AuthService] ${email} successfully registered`);
-        }
-        return {
-            create,
-            data: this._hidePasswordInfo(userInfo),
-        };
-    };
-
     login = async (email, password) => {
         // login
-        console.log(`[AuthService] ${email} try to login`);
+        logWithFileInfo('info', `${email} try to login`);
 
         // 1. get related user info
         let userInfo = await this._dynamodbService.getUserInfoFromEmail(email);
         if (userInfo === null) {
             // not yet registered
-            console.log(`[AuthService] ${email} not yet registered`);
+            logWithFileInfo('info', `${email} not yet registered`);
             return { success: false, error: 'Not yet registered' };
         }
         // 2. check password
         const passwordSalt = userInfo.passwordSalt;
         if (this._hashPassword(password, passwordSalt) !== userInfo.passwordHash) {
-            console.log(`[AuthService] ${email} login with invalid password`);
+            logWithFileInfo('info', `${email} login with invalid password`);
             return { success: false, error: 'Invalid password' };
         }
 
