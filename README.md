@@ -18,4 +18,5 @@
 
 -   [Pre-commit 設定](docs/project_setup/pre-commit_setup.md)
 -   [專案初始化](docs/project_setup/project_init.md)
+-   [取得 AWS access key](docs/project_setup/aws_access_key_setup.md)
 -   [Redis](docs/project_setup/redis.md)
