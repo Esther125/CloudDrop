@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink, RouterView, useRouter } from 'vue-router';
-import { ref, reactive, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
+import { ref, reactive, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue';
 import axios from 'axios';
 import { useGlobalStore } from './stores/globals.js';
 import { io as ioc } from 'socket.io-client';
@@ -11,12 +11,16 @@ import { io as ioc } from 'socket.io-client';
 const BE_API_BASE_URL = import.meta.env.VITE_BE_API_BASE_URL;
 const CHAT_SERVER_URL = import.meta.env.VITE_CHAT_SERVER_URL;
 const isDarkTheme = ref(false);
+const particlesPath = reactive({
+    dark: "/src/assets/particles-dark.json",
+    light: "/src/assets/particles-light.json"
+});
 const icon = ref();
+
 const characters = reactive(['', '', '', '', '']);
 const inputRefs = ref([]);
 
 const store = useGlobalStore();
-
 const router = useRouter();
 
 /* ------------------------------
@@ -103,9 +107,13 @@ const AUTH_OPTIONS = (userID) => ({
 });
 
 /* ------------------------------
-   Watchers
+   Watchers, Computed
 -------------------------------- */
 watch(isDarkTheme, iconChange);
+
+const particlesUrl = computed(() => {
+  return isDarkTheme.value ? particlesPath.dark : particlesPath.light;
+});
 
 /* ------------------------------
    Lifecycle Hooks
@@ -113,6 +121,7 @@ watch(isDarkTheme, iconChange);
 onMounted(async () => {
     // check theme
     isDarkTheme.value = window.matchMedia('(prefers-color-scheme: dark').matches;
+    particlesUrl.value = isDarkTheme.value ? particlesPath.dark : particlesPath.light;
     // add event listener
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeChangeHandler);
     // init icon
@@ -132,17 +141,20 @@ onMounted(async () => {
         sessionStorage.setItem('userId', response.data.userId); // Save to SessionStorage
     }
 
+    // Build WebSocket connection
+    store.clientSocket = ioc(CHAT_SERVER_URL, AUTH_OPTIONS(store.user.id));
+
     // Check if roomToken exists in SessionStorage
     if (storedRoomToken) {
-         // Use the stored roomToken, qrCodeSrc
+        // Use the stored roomToken, qrCodeSrc
         store.roomToken = storedRoomToken;
         store.qrCodeSrc = storedQrCodeSrc;
         const { data } = await axios.post(`${BE_API_BASE_URL}/rooms/${store.roomToken}/members`);
         store.members = data.members
-    }
 
-    // Build WebSocket connection
-    store.clientSocket = ioc(CHAT_SERVER_URL, AUTH_OPTIONS(store.user.id));
+        // websocket: join room
+        store.clientSocket.emit('join chatroom', { roomToken: store.roomToken });
+    }
 
     // Listen websocket
     store.clientSocket.on('system message', async (res) => {
@@ -167,6 +179,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+    <vue-particles id="tsparticles" :url="particlesUrl" :key="particlesUrl"/>
     <nav class="navbar navbar-expand-md fixed-top">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
@@ -209,43 +222,43 @@ onBeforeUnmount(() => {
         </div>
     </nav>
 
-    <div class="d-flex align-items-center router-view-container">
+    <div class="d-flex align-items-center router-view-container" id="particles-container" >
         <RouterView />
+    </div>
 
-        <!-- Room Modal -->
-        <div class="modal fade" id="roomModal" tabindex="-1" aria-labelledby="roomModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header pt-3 pb-2 border-0">
-                        <h5 class="modal-title" id="roomModalLabel">創建或加入房間</h5>
-                    </div>
-                    <div class="modal-body d-flex flex-column">
-                        <div class="d-flex justify-content-center mb-3">
-                            <div v-for="(letter, index) in store.roomToken" :key="index" class="letter-box">
-                                {{ letter }}
-                            </div>
-                        </div>
-                        <div>
-                            <img :src="store.qrCodeSrc" />
-                        </div>
-                        <div class="d-flex flex-row justify-content-center">
-                            <div v-for="(char, index) in characters" :key="index" class="me-2 mt-4">
-                                <input
-                                    type="text"
-                                    maxlength="1"
-                                    class="form-control text-center input-box"
-                                    v-model="characters[index]"
-                                    @input="moveToNext(index)"
-                                    @keydown.backspace="handleBackspace(index)"
-                                    ref="inputRefs"
-                                    :ref="el => inputRefs.value[index] = el"
-                                />
-                            </div>
+    <!-- Room Modal -->
+    <div class="modal fade" id="roomModal" tabindex="-1" aria-labelledby="roomModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header pt-3 pb-2 border-0">
+                    <h5 class="modal-title" id="roomModalLabel">創建或加入房間</h5>
+                </div>
+                <div class="modal-body d-flex flex-column">
+                    <div class="d-flex justify-content-center mb-3">
+                        <div v-for="(letter, index) in store.roomToken" :key="index" class="letter-box">
+                            {{ letter }}
                         </div>
                     </div>
-                    <div class="modal-footer justify-content-center border-0">
-                        <button class="btn btn-secondary" type="submit" @click="joinRoom">加入</button>
+                    <div>
+                        <img :src="store.qrCodeSrc" />
                     </div>
+                    <div class="d-flex flex-row justify-content-center">
+                        <div v-for="(char, index) in characters" :key="index" class="me-2 mt-4">
+                            <input
+                                type="text"
+                                maxlength="1"
+                                class="form-control text-center input-box"
+                                v-model="characters[index]"
+                                @input="moveToNext(index)"
+                                @keydown.backspace="handleBackspace(index)"
+                                ref="inputRefs"
+                                :ref="el => inputRefs.value[index] = el"
+                            />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center border-0">
+                    <button class="btn btn-secondary" type="submit" @click="joinRoom">加入</button>
                 </div>
             </div>
         </div>
@@ -335,7 +348,18 @@ li {
 
 .router-view-container {
     flex: 1;
+    max-height: calc(100vh - 116px);
     height: calc(100vh - 116px);
     margin-top: 58px;
+}
+
+#tsparticles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
 }
 </style>

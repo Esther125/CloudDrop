@@ -1,7 +1,7 @@
 <script setup>
-import { ref, watchEffect } from 'vue';
+import { ref, reactive, watchEffect, nextTick, onMounted } from 'vue';
 import axios from 'axios';
-import { useGlobalStore } from '../stores/globals.js';
+import { useGlobalStore } from '@/stores/globals.js';
 import { useRoute, useRouter } from 'vue-router';
 
 const store = useGlobalStore();
@@ -9,8 +9,10 @@ const route = useRoute();
 const router = useRouter();
 const apiUrl = import.meta.env.VITE_BE_API_BASE_URL;
 
+const messagesContainer = ref(null); // for scroll down when new message add
 const messageInput = ref('');
-const messages = ref([]);
+const messages = reactive([]); // to store chat messages
+let enterPressedOnce = false; // send message if pressing enter key twice
 
 watchEffect(async () => {
     // 如果沒有 roomToken 或 user.id，直接退出
@@ -40,26 +42,94 @@ watchEffect(async () => {
     }
 });
 
+// Ensure that listener is binded after store.clientSocker is loaded
+watchEffect(() => {
+    if (store.clientSocket) {
+        if (!store.clientSocket.hasSetup) {
+            store.clientSocket.hasSetup = true;
+
+            // bind chat message listener
+            store.clientSocket.on('chat message', async (res) => {
+                console.log(res);
+                if (res.roomToken === store.roomToken) {
+                    const newMessageReceive = {
+                        userId: res.message.senderID.slice(0, 8),
+                        content: res.message.content,
+                        timestamp: new Date().toLocaleTimeString(),
+                    };
+                    try {
+                        messages.push(newMessageReceive);
+                        await nextTick(); // wait until new messages render
+                        scrollToBottom(); // than scroll to buttom
+                        sessionStorage.setItem('messages', JSON.stringify(messages));
+                    } catch (error) {
+                        console.error('Error processing incoming message:', error);
+                    }
+                }
+            });
+        }
+    }
+});
+
 const sendMessage = async () => {
-    // To be done
     if (messageInput.value.trim()) {
         const newMessage = {
-            userId: store.user.id,
+            userId: store.user.id.slice(0, 8),
             content: messageInput.value,
             timestamp: new Date().toLocaleTimeString(),
         };
         try {
-            // Send the message to the backend
-
+            // Send the message
+            store.clientSocket.emit('chat message', { roomToken: store.roomToken, message: messageInput.value });
             // Add the new message to the messages array
-            messages.value.push(messageInput);
+            messages.push(newMessage);
             messageInput.value = ''; // Clear input
-            //   scrollToBottom();
+            await nextTick();
+            scrollToBottom();
+            sessionStorage.setItem('messages', JSON.stringify(messages));
         } catch (error) {
             console.error('Error sending message:', error);
         }
     }
 };
+
+const scrollToBottom = () => {
+    if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+};
+
+const handleEnter = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault(); // prevent default behavior and avoid line breaks
+        
+        if (enterPressedOnce) {
+            sendMessage();
+            enterPressedOnce = false;
+        } else {
+            enterPressedOnce = true;
+            setTimeout(() => {
+                enterPressedOnce = false;
+            }, 1000);
+        }
+    }
+};
+
+onMounted(async () => {
+    const storedMessages = sessionStorage.getItem('messages'); // get stored messages when page is refresh
+    if (storedMessages) {
+        try {
+            const parsedMessages = JSON.parse(storedMessages);
+            if (Array.isArray(parsedMessages)) {
+                parsedMessages.forEach((msg) => messages.push(msg));
+            }
+        } catch (error) {
+            console.error('Error parsing stored messages:', error);
+        }
+    }
+    await nextTick();
+    scrollToBottom();
+});
 
 </script>
 <template>
@@ -69,13 +139,13 @@ const sendMessage = async () => {
             <div class="row d-flex justify-content-center">
                 <div class="col-auto d-flex align-items-center mb-3" v-for="(userId, index) in store.members">
                     <!-- computer card -->
-                    <div class="card bg-transparent border-0 text-center shadow-sm" style="width: 120px">
+                    <div class="card bg-transparent border-0 text-center" style="width: 120px">
                         <!-- icon -->
                         <div class="card-body d-flex justify-content-center align-items-center p-0">
                             <i class="bi bi-laptop display-1 p-0 icon"></i>
                         </div>
                         <!-- name -->
-                        <div class="card-footer py-0">
+                        <div class="card-footer py-0 border-0 bg-transparent">
                             {{ userId.slice(0, 8) }}
                         </div>
                     </div>
@@ -87,22 +157,36 @@ const sendMessage = async () => {
             <div class="chat-box flex-grow-1">
                 <!-- Chat messages -->
                 <div class="messages-container px-3 py-2 overflow-auto" ref="messagesContainer">
-                    <div class="message" v-for="(message, index) in messages" :key="index">
-                        <div class="message-header d-flex justify-content-between">
-                            <strong>{{ message.userId }}</strong>
-                            <span>{{ message.timestamp }}</span>
+                    <transition-group name="fade" tag="div">
+                        <div class="message d-flex flex-column" v-for="(message, index) in messages" :key="index">
+                            <div v-if="message.userId === store.user.id.slice(0, 8)" class="d-flex justify-content-end mb-3">
+                                <div class="message-body p-2 rounded text-end float-end">
+                                    {{ message.content }}
+                                </div>
+                            </div>
+                            <div v-else class="d-flex flex-column justify-content-start mb-3">
+                                <div class="message-header justify-content-between">
+                                    <strong>{{ message.userId }}</strong>
+                                    <span></span>
+                                </div>
+                                <div class="message-body p-2 rounded">
+                                    {{ message.content }}
+                                </div>
+                            </div>
                         </div>
-                        <div class="message-body bg-light p-2 rounded">
-                            {{ message.content }}
-                        </div>
-                    </div>
+                    </transition-group>
                 </div>
 
                 <!-- Message input and send button -->
-                <div class="input-group p-2 border-top">
-                    <input type="text" v-model="messageInput" class="form-control" placeholder="Type your message"
-                        @keyup.enter="sendMessage" />
-                    <button class="btn btn-primary ms-2" @click="sendMessage">Send</button>
+                <div class="input-group p-2">
+                    <input 
+                        type="text"
+                        v-model="messageInput"
+                        class="form-control"
+                        placeholder="輸入訊息～"
+                        @keyup="handleEnter"
+                        @input="resizeTextarea"/>
+                    <button class="btn" @click="sendMessage">Send</button>
                 </div>
             </div>
         </div>
@@ -120,28 +204,36 @@ const sendMessage = async () => {
 
 .chat-room {
     background-color: var(--color-background-soft);
-    height: 100%;
+    max-height: 100%;
+}
+
+.chat-box {
+    max-height: 100%;
 }
 
 .messages-container {
+    max-height: calc(100% - 55px);
     height: calc(100% - 55px);
-    overflow-y: auto;
-    scrollbar-width: thin;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
-.message {
-    border-bottom: 1px solid #969696;
-    padding-bottom: 0.5rem;
+.messages-container::-webkit-scrollbar {
+    display: none; /* Chrome、Safari hide scroll */
 }
 
 .message-header {
     font-size: 0.9rem;
-    color: #666;
 }
 
 .message-body {
+    display: inline-block;
+    max-width: 70%;
     font-size: 1rem;
     word-break: break-word;
+    overflow: hidden;
+    background-color: var(--color-background-2);
 }
 
 .input-group {
@@ -149,4 +241,24 @@ const sendMessage = async () => {
     gap: 0.5rem;
     height: 55px;
 }
+
+.fade-enter-active, .fade-leave-active {
+    transition: all 0.3s ease;
+}
+
+.fade-enter-from {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.fade-enter-to {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.btn {
+    background-color: rgba(29, 94, 225, 0.918);;
+    color: rgb(255, 255, 255);
+}
+
 </style>
