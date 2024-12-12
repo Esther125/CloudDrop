@@ -42,7 +42,7 @@
 -   建立連線：
 
     ```js
-    const socket = io(`${serverURL}/chat`, {
+    const socket = io(`${serverURL}/socket`, {
         auth: {
             user: {
                 id: userID;

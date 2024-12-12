@@ -1,37 +1,37 @@
-import ChatController from '../controllers/chatController.js';
+import SocketController from '../controllers/socketController.js';
 
 const VALID_EVENTS = ['join chatroom', 'request transfer', 'chat message', 'leave chatroom'];
 
-const chatRouter = (chatNameSpace) => {
-    const chatController = new ChatController();
+const socketRouter = (socketNameSpace) => {
+    const socketController = new SocketController();
 
-    // connect to server (/chat)
-    chatNameSpace.on('connection', (socket) => {
-        chatController.connect(socket);
+    // connect to server (/socket)
+    socketNameSpace.on('connection', (socket) => {
+        socketController.connect(socket);
 
         socket.on('join chatroom', (payload) => {
             // join chatroom
-            chatController.joinChatroom(socket, payload);
+            socketController.joinChatroom(socket, payload);
         });
 
         socket.on('request transfer', (payload) => {
             // request transfer (file)
-            chatController.requestTransfer(socket, payload, chatNameSpace);
+            socketController.requestTransfer(socket, payload, socketNameSpace);
         });
 
         socket.on('chat message', (payload) => {
             // chat message
-            chatController.chatMessage(socket, payload);
+            socketController.chatMessage(socket, payload);
         });
 
         socket.on('leave chatroom', (payload) => {
             // leave chatroom
-            chatController.leaveChatroom(socket, payload);
+            socketController.leaveChatroom(socket, payload);
         });
 
         socket.on('disconnect', (reason) => {
-            // disconnect with server (/chat)
-            chatController.disconnect(socket, reason);
+            // disconnect with server (/socket)
+            socketController.disconnect(socket, reason);
         });
 
         socket.on('error', (e) => {
@@ -44,9 +44,9 @@ const chatRouter = (chatNameSpace) => {
             if (VALID_EVENTS.includes(event)) {
                 return;
             }
-            chatController.invalidEvent(socket);
+            socketController.invalidEvent(socket);
         });
     });
 };
 
-export default chatRouter;
+export default socketRouter;

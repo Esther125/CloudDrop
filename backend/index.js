@@ -11,7 +11,7 @@ import historyRouter from './src/routes/historyRoutes.js';
 import { logWithFileInfo } from './logger.js';
 import http from 'http';
 import { Server } from 'socket.io';
-import chatRouter from './src/routes/chatRouter.js';
+import socketRouter from './src/routes/socketRouter.js';
 import redisClient from './src/clients/redisClient.js';
 
 // express
@@ -46,8 +46,8 @@ const io = new Server(httpServer, {
 });
 
 // use routes
-const chatNameSpace = io.of('/chat');
-chatRouter(chatNameSpace);
+const socketNameSpace = io.of('/socket');
+socketRouter(socketNameSpace);
 
 // Quit Redis
 process.on('SIGINT', async () => {
