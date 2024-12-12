@@ -1,11 +1,17 @@
 import { Router } from 'express';
 import InternetFileController from '../controllers/internetFileController.js';
-import InternetFileService from '../services/internetFileService.js';
 import multer from 'multer';
 
 const internetFileRouter = Router();
 const internetFileController = new InternetFileController();
-const internetFileService = new InternetFileService();
+
+// 定義檔案上傳 middleware
+const uploadWithMulter = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+}).single('uploadFile'); // 'uploadFile' 是前端 input 的 name 屬性
+
+// 定義 middleware 的 error handling
 const multerErrorHandling = (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         console.error('Multer Error:', err);
@@ -20,8 +26,8 @@ const multerErrorHandling = (err, req, res, next) => {
 // 定義路由
 internetFileRouter.post(
     '/upload',
-    internetFileService.getUploadMiddleware(),
-    internetFileController.upload,
+    uploadWithMulter,
+    (req, res) => internetFileController.upload(req, res),
     multerErrorHandling
 );
 internetFileRouter.get('/:userId/download/:way/:fileId', internetFileController.download);

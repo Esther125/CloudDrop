@@ -9,10 +9,7 @@ class InternetFileController {
     upload = async (req, res) => {
         logWithFileInfo('info', '----InternetFileController.upload');
         try {
-            if (!req.file) {
-                throw new Error('No file was uploaded.');
-            }
-            const fullFilename = req.file.filename; // 從 multer middleware 抓文件名
+            const fullFilename = await this.internetFileService.uploadFile(req, res);
             const [fileId, fileName] = fullFilename.split('_');
             res.status(200).json({
                 message: 'File uploaded successfully.',
