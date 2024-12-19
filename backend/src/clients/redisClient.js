@@ -181,6 +181,32 @@ class RedisClient {
 
         return countDeleted;
     };
+
+    saveBloomFilter = async (bloomFilter) => {
+        try {
+            const data = JSON.stringify(bloomFilter.saveAsJSON());
+            await this.client.set('bloomFilter', data);
+        } catch (err) {
+            logWithFileInfo('error', '[RedisClient] Error saving bloom filter to Redis', err);
+            throw err;
+        }
+    };
+
+    loadBloomFilter = async () => {
+        try {
+            const data = await this.client.get('bloomFilter');
+            if (data) {
+                const parsedData = JSON.parse(data);
+                return parsedData;
+                // return CountingBloomFilter.fromJSON(parsedData);
+            } else {
+                return null;
+            }
+        } catch (err) {
+            logWithFileInfo('error', '[RedisClient] Error loading bloom filter from Redis', err);
+            throw err;
+        }
+    };
 }
 
 const redisClient = new RedisClient();
