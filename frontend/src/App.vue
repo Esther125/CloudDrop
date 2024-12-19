@@ -40,28 +40,19 @@ const iconChange = (isDarkTheme) => {
 
 const roomModalHandler = async () => {
     try {
-        const storedRoomToken = sessionStorage.getItem('roomToken');
-        const storedQrCodeSrc = sessionStorage.getItem('qrCodeSrc');
-        console.log('storedRoomToken: ' + storedRoomToken)
-        console.log('global RoomToken: ' + store.roomToken)
-        if (!storedRoomToken) {
+        if (!store.roomToken) {
             // call room create api
             const { data } = await axios.post(`${BE_API_BASE_URL}/rooms`, { user: store.user });
             store.roomToken = data.token;
             store.qrCodeSrc = data.qrCodeDataUrl;
-            console.log('roomToken: ' + store.roomToken)
             sessionStorage.setItem('roomToken', store.roomToken);
             sessionStorage.setItem('qrCodeSrc', store.qrCodeSrc);
 
             // websocket join room
             if (store.clientSocket) {
                 store.clientSocket.emit('join chatroom', { roomToken: store.roomToken });
-                console.log('websocket join room')
             }
-        } else {
-            store.roomToken = storedRoomToken
-            store.qrCodeSrc = storedQrCodeSrc
-        }
+        } 
     } catch (error) {
         console.error('Error creating room: ', error);
     }
@@ -84,7 +75,7 @@ const handleBackspace = async (index) => {
 };
 
 const joinRoom = async () => {
-    let inputRoomToken = characters.join('');
+    let inputRoomToken = characters.join('').toUpperCase();
     if (inputRoomToken.length === 5) {
         store.roomToken = inputRoomToken
         sessionStorage.setItem('roomToken', inputRoomToken);
@@ -98,6 +89,30 @@ const joinRoom = async () => {
     }
 }
 
+const leaveRoom = async () => {
+    if (store.roomToken) {
+        const { data } = await axios.post(`${BE_API_BASE_URL}/rooms/${store.roomToken}/leave`, { user: store.user });
+        if (data.message === "success") {
+            store.clientSocket.emit('leave chatroom', { roomToken: store.roomToken });
+            clearData()
+            router.push({ path: '/'});
+            const modalInstance = bootstrap.Modal.getInstance(roomModal);
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+        }
+    }
+}
+
+const clearData = () => {
+    store.roomToken = null;
+    store.qrCodeSrc = null;
+    store.members = [];
+    sessionStorage.removeItem('roomToken');
+    sessionStorage.removeItem('qrCodeSrc');
+    sessionStorage.removeItem('messages');
+}
+
 const AUTH_OPTIONS = (userID) => ({
     auth: {
         user: {
@@ -105,6 +120,10 @@ const AUTH_OPTIONS = (userID) => ({
         },
     },
 });
+
+const onModalHide = () => {
+    characters.splice(0, characters.length, ...new Array(5).fill(''));
+}
 
 /* ------------------------------
    Watchers, Computed
@@ -157,7 +176,6 @@ onMounted(async () => {
 
     // Listen websocket
     store.clientSocket.on('system message', async (res) => {
-        console.log('WebSocket - system message');
         console.log(res)
     });
 
@@ -167,6 +185,9 @@ onMounted(async () => {
             const { data } = await axios.post(`${BE_API_BASE_URL}/rooms/${store.roomToken}/members`);
             store.members = data.members
             router.push({ path: '/', query: { roomToken: store.roomToken, needJoinRoom: 'false' } });
+        } else if (res.roomToken === store.roomToken & res.type === 'leave') {
+            const { data } = await axios.post(`${BE_API_BASE_URL}/rooms/${store.roomToken}/members`);
+            store.members = data.members
         }
     });
 });
@@ -226,7 +247,14 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Room Modal -->
-    <div class="modal fade" id="roomModal" tabindex="-1" aria-labelledby="roomModalLabel" aria-hidden="true">
+    <div 
+        class="modal fade"
+        id="roomModal"
+        tabindex="-1"
+        aria-labelledby="roomModalLabel"
+        aria-hidden="true"
+        v-on="{ 'hide.bs.modal': onModalHide }"
+    >
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header pt-3 pb-2 border-0">
@@ -257,14 +285,15 @@ onBeforeUnmount(() => {
                     </div>
                 </div>
                 <div class="modal-footer justify-content-center border-0">
-                    <button class="btn btn-secondary" type="submit" @click="joinRoom">加入</button>
+                    <button class="btn btn-secondary" type="submit" @click="leaveRoom">離開</button>
+                    <button class="btn btn-success" type="submit" @click="joinRoom">加入</button>
                 </div>
             </div>
         </div>
     </div>
 
     <nav class="navbar navbar-expand-md fixed-bottom justify-content-center navbar-bottom">
-        <div class="d-flex justify-content-center align-items-center mb-2">
+        <div class="d-flex justify-content-center align-items-center">
                 <p class="mx-1 mb-0 p-1">裝置名稱：{{ store.user.id.slice(0, 8) }}</p>
                 <p class="mb-0 p-1" v-if="store.roomToken">|</p>
                 <p class="mx-1 mb-0 p-1" v-if="store.roomToken">可見於 {{ store.roomToken }} 房間中</p>
@@ -347,9 +376,10 @@ li {
 
 .router-view-container {
     flex: 1;
-    max-height: calc(100vh - 116px);
-    height: calc(100vh - 116px);
+    max-height: calc(100vh - 111px);
+    height: calc(100vh - 111px);
     margin-top: 58px;
+    background-color: var(--color-background);
 }
 
 #tsparticles {
@@ -358,7 +388,7 @@ li {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
 }
 </style>

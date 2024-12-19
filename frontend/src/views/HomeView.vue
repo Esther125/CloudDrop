@@ -17,6 +17,5 @@ onMounted(() => {
 <template>
   <component
       :is="route.query.roomToken ? Room : Home"
-      :roomToken="store.roomToken"
   />
 </template>

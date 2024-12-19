@@ -83,6 +83,35 @@ class RoomsController {
             res.status(500).json({ message: `Error when getting members of room ${token}` });
         }
     };
+
+    leaveTargetRoom = async (req, res) => {
+        logWithFileInfo('info', '[RoomsController] -----leaveTargetRoom-----');
+
+        let user;
+        let token;
+        try {
+            user = req.body.user;
+            token = req.params.roomToken;
+
+            if (!user) {
+                logWithFileInfo('error', '[RoomsController] Error when leaving room - User object is required');
+                return res.status(400).json({ message: 'User object is required' });
+            }
+
+            if (!user.id || user.id.length === 0) {
+                logWithFileInfo('error', '[RoomsController] Error when leaving room - User id is required');
+                return res.status(400).json({ message: 'User id is required' });
+            }
+
+            await this.roomService.leaveTargetRoom(user.id, token);
+
+            return res.status(200).json({ message: 'success' });
+        } catch (error) {
+            console.log(error);
+            logWithFileInfo('error', `[RoomsController] Error when leaving room ${token} for user ${user.id}`, error);
+            res.status(500).json({ message: `Error when when leaving room ${token} for user ${user.id}` });
+        }
+    };
 }
 
 export default RoomsController;

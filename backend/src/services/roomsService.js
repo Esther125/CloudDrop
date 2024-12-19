@@ -138,6 +138,18 @@ class RoomService {
             return { members };
         } catch (err) {}
     };
+
+    leaveTargetRoom = async (userId, token) => {
+        await redisClient.connect();
+
+        const tokenFromRedis = await redisClient.get(`userId:${userId}`);
+        if (tokenFromRedis === token) {
+            await redisClient.sRem(token, userId);
+            await redisClient.del(`userId:${userId}`);
+
+            logWithFileInfo('info', `[RoomService] leave target room: ${userId} and token ${token}`);
+        }
+    };
 }
 
 export default RoomService;
