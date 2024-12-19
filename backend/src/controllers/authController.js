@@ -46,6 +46,8 @@ class AuthController {
         try {
             const loginResult = await this.authService.login(email, password);
             if (loginResult.success) {
+                res.cookie('accessToken', loginResult.tokens.accessToken, { httpOnly: true, secure: false });
+                res.cookie('refreshToken', loginResult.tokens.refreshToken, { httpOnly: true, secure: false });
                 res.status(200).json({ message: 'Login success', data: loginResult.data });
             } else {
                 res.status(401).json({ message: loginResult.error });
@@ -58,8 +60,14 @@ class AuthController {
 
     logout = async (req, res) => {
         logWithFileInfo('info', '-----logout-----');
-        // TODO: 實現登出邏輯
-        res.status(200).json({ message: 'Logout logic not implemented yet' });
+        res.clearCookie('accessToken');
+        res.clearCookie('refreshToken');
+        logWithFileInfo('info', `user ${req.user.userID} logout`);
+        res.status(200).json({ message: `user ${req.user.userID} logout` });
+    };
+
+    authCheck = async (req, res) => {
+        res.status(200).json({ message: 'pass authentication check', userID: req.user.userID });
     };
 }
 

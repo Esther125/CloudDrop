@@ -26,7 +26,6 @@ const testUpload = async () => {
 
         const roomUrlResult = await s3Service.generatePresignedUrl(mockFilename, 'room', mockUserId);
         console.log(`User generate presigned Url Success`);
-
     } catch (error) {
         console.error('Upload Failed:', error.message);
     }

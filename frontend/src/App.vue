@@ -2,8 +2,11 @@
 import { RouterLink, RouterView, useRouter } from 'vue-router';
 import { ref, reactive, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue';
 import axios from 'axios';
+import api from '@/api/api';
 import { useGlobalStore } from './stores/globals.js';
 import { io as ioc } from 'socket.io-client';
+import Login from './components/LoginModal.vue';
+import Logout from './components/LogoutModal.vue';
 
 /* ------------------------------
    Variables
@@ -12,8 +15,8 @@ const BE_API_BASE_URL = import.meta.env.VITE_BE_API_BASE_URL;
 const CHAT_SERVER_URL = import.meta.env.VITE_CHAT_SERVER_URL;
 const isDarkTheme = ref(false);
 const particlesPath = reactive({
-    dark: "/src/assets/particles-dark.json",
-    light: "/src/assets/particles-light.json"
+    dark: '/src/assets/particles-dark.json',
+    light: '/src/assets/particles-light.json',
 });
 const icon = ref();
 
@@ -42,25 +45,25 @@ const roomModalHandler = async () => {
     try {
         const storedRoomToken = sessionStorage.getItem('roomToken');
         const storedQrCodeSrc = sessionStorage.getItem('qrCodeSrc');
-        console.log('storedRoomToken: ' + storedRoomToken)
-        console.log('global RoomToken: ' + store.roomToken)
+        console.log('storedRoomToken: ' + storedRoomToken);
+        console.log('global RoomToken: ' + store.roomToken);
         if (!storedRoomToken) {
             // call room create api
             const { data } = await axios.post(`${BE_API_BASE_URL}/rooms`, { user: store.user });
             store.roomToken = data.token;
             store.qrCodeSrc = data.qrCodeDataUrl;
-            console.log('roomToken: ' + store.roomToken)
+            console.log('roomToken: ' + store.roomToken);
             sessionStorage.setItem('roomToken', store.roomToken);
             sessionStorage.setItem('qrCodeSrc', store.qrCodeSrc);
 
             // websocket join room
             if (store.clientSocket) {
                 store.clientSocket.emit('join chatroom', { roomToken: store.roomToken });
-                console.log('websocket join room')
+                console.log('websocket join room');
             }
         } else {
-            store.roomToken = storedRoomToken
-            store.qrCodeSrc = storedQrCodeSrc
+            store.roomToken = storedRoomToken;
+            store.qrCodeSrc = storedQrCodeSrc;
         }
     } catch (error) {
         console.error('Error creating room: ', error);
@@ -86,7 +89,7 @@ const handleBackspace = async (index) => {
 const joinRoom = async () => {
     let inputRoomToken = characters.join('');
     if (inputRoomToken.length === 5) {
-        store.roomToken = inputRoomToken
+        store.roomToken = inputRoomToken;
         sessionStorage.setItem('roomToken', inputRoomToken);
         const modalInstance = bootstrap.Modal.getInstance(roomModal);
         if (modalInstance) {
@@ -94,9 +97,9 @@ const joinRoom = async () => {
         }
         router.push({ path: '/', query: { roomToken: inputRoomToken } });
     } else {
-        alert('邀請碼不存在')
+        alert('邀請碼不存在');
     }
-}
+};
 
 const AUTH_OPTIONS = (userID) => ({
     auth: {
@@ -112,7 +115,7 @@ const AUTH_OPTIONS = (userID) => ({
 watch(isDarkTheme, iconChange);
 
 const particlesUrl = computed(() => {
-  return isDarkTheme.value ? particlesPath.dark : particlesPath.light;
+    return isDarkTheme.value ? particlesPath.dark : particlesPath.light;
 });
 
 /* ------------------------------
@@ -125,7 +128,7 @@ onMounted(async () => {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeChangeHandler);
     // init icon
     iconChange(isDarkTheme.value);
-    
+
     const storedUserId = sessionStorage.getItem('userId');
     const storedRoomToken = sessionStorage.getItem('roomToken');
     const storedQrCodeSrc = sessionStorage.getItem('qrCodeSrc');
@@ -134,10 +137,18 @@ onMounted(async () => {
     if (storedUserId) {
         store.user.id = storedUserId; // Use the stored userId
     } else {
-        // Fetch new userId and save to SessionStorage
-        const response = await axios.get(`${BE_API_BASE_URL}/`);
-        store.user.id = response.data.userId
-        sessionStorage.setItem('userId', response.data.userId); // Save to SessionStorage
+        let userId;
+        try {
+            // check if already login
+            const response = await api.get('/auth-check');
+            userId = response.data.userID;
+        } catch (err) {
+            // Fetch new userId and save to SessionStorage
+            const response = await axios.get(`${BE_API_BASE_URL}/`);
+            userId = response.data.userId;
+        }
+        store.user.id = userId;
+        sessionStorage.setItem('userId', userId); // Save to SessionStorage
     }
 
     // Build WebSocket connection
@@ -149,7 +160,7 @@ onMounted(async () => {
         store.roomToken = storedRoomToken;
         store.qrCodeSrc = storedQrCodeSrc;
         const { data } = await axios.post(`${BE_API_BASE_URL}/rooms/${store.roomToken}/members`);
-        store.members = data.members
+        store.members = data.members;
 
         // websocket: join room
         store.clientSocket.emit('join chatroom', { roomToken: store.roomToken });
@@ -158,15 +169,30 @@ onMounted(async () => {
     // Listen websocket
     store.clientSocket.on('system message', async (res) => {
         console.log('WebSocket - system message');
-        console.log(res)
+        console.log(res);
     });
 
     store.clientSocket.on('room notify', async (res) => {
-        console.log(res)
-        if (res.roomToken === store.roomToken & res.type === 'join') {
+        console.log(res);
+        if ((res.roomToken === store.roomToken) & (res.type === 'join')) {
             const { data } = await axios.post(`${BE_API_BASE_URL}/rooms/${store.roomToken}/members`);
-            store.members = data.members
+            store.members = data.members;
             router.push({ path: '/', query: { roomToken: store.roomToken, needJoinRoom: 'false' } });
+        }
+    });
+
+    // !!!! TODO: 暫用，待解決
+    document.addEventListener('hidden.bs.modal', function () {
+        const openModals = document.querySelectorAll('.modal.show');
+        if (openModals.length === 0) {
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        }
+        const backdrops = Array.from(document.querySelectorAll('.modal-backdrop'));
+        if (backdrops.length > 0) {
+            backdrops.forEach((backdrop) => {
+                backdrop.remove();
+            });
         }
     });
 });
@@ -178,7 +204,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <vue-particles id="tsparticles" :url="particlesUrl" :key="particlesUrl"/>
+    <vue-particles id="tsparticles" :url="particlesUrl" :key="particlesUrl" />
     <nav class="navbar navbar-expand-md fixed-top">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
@@ -212,7 +238,12 @@ onBeforeUnmount(() => {
                         </li>
                         <li>
                             <RouterLink to="/history" class="dropdown-item">
-                                <i class="bi bi-clock-history h5 icon  me-1"></i> History
+                                <i class="bi bi-clock-history h5 icon me-1"></i> History
+                            </RouterLink>
+                        </li>
+                        <li>
+                            <RouterLink to="/logout" class="dropdown-item">
+                                <i class="bi bi-door-open h5 icon me-1"></i> Login / Logout
                             </RouterLink>
                         </li>
                     </ul>
@@ -221,7 +252,7 @@ onBeforeUnmount(() => {
         </div>
     </nav>
 
-    <div class="d-flex align-items-center router-view-container" id="particles-container" >
+    <div class="d-flex align-items-center router-view-container" id="particles-container">
         <RouterView />
     </div>
 
@@ -251,7 +282,7 @@ onBeforeUnmount(() => {
                                 @input="moveToNext(index)"
                                 @keydown.backspace="handleBackspace(index)"
                                 ref="inputRefs"
-                                :ref="el => inputRefs.value[index] = el"
+                                :ref="(el) => (inputRefs.value[index] = el)"
                             />
                         </div>
                     </div>
@@ -263,11 +294,15 @@ onBeforeUnmount(() => {
         </div>
     </div>
 
+    <Login />
+    <!-- <Login :isOpen="variable" /> -->
+    <Logout />
+
     <nav class="navbar navbar-expand-md fixed-bottom justify-content-center navbar-bottom">
         <div class="d-flex justify-content-center align-items-center mb-2">
-                <p class="mx-1 mb-0 p-1">裝置名稱：{{ store.user.id.slice(0, 8) }}</p>
-                <p class="mb-0 p-1" v-if="store.roomToken">|</p>
-                <p class="mx-1 mb-0 p-1" v-if="store.roomToken">可見於 {{ store.roomToken }} 房間中</p>
+            <p class="mx-1 mb-0 p-1">裝置名稱：{{ store.user.id.slice(0, 8) }}</p>
+            <p class="mb-0 p-1" v-if="store.roomToken">|</p>
+            <p class="mx-1 mb-0 p-1" v-if="store.roomToken">可見於 {{ store.roomToken }} 房間中</p>
         </div>
     </nav>
 </template>
@@ -313,6 +348,16 @@ li {
     list-style-type: none;
 }
 
+.card {
+    background-color: var(--color-card-background);
+}
+
+.modal-header,
+.modal-footer {
+    border-bottom: 0px;
+    border-top: 0px;
+}
+
 .modal-content {
     background-color: var(--color-background-soft);
     color: var(--color-text);
@@ -353,12 +398,12 @@ li {
 }
 
 #tsparticles {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: -1;
-  pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
 }
 </style>

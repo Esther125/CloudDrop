@@ -17,10 +17,10 @@ let enterPressedOnce = false; // send message if pressing enter key twice
 
 const showChat = ref(true);
 const switchBtnText = computed(() => {
-  return showChat.value ? "See Files" : "See Chat";
+    return showChat.value ? 'See Files' : 'See Chat';
 });
 
-const files = reactive([])
+const files = reactive([]);
 
 watchEffect(async () => {
     // 如果沒有 roomToken 或 user.id，直接退出
@@ -28,7 +28,7 @@ watchEffect(async () => {
         return;
     }
     try {
-        const needJoinRoom = route.query.needJoinRoom
+        const needJoinRoom = route.query.needJoinRoom;
 
         if (needJoinRoom !== 'false') {
             const { data } = await axios.post(`${apiUrl}/rooms/${store.roomToken}/join`, { user: store.user });
@@ -39,10 +39,10 @@ watchEffect(async () => {
                 sessionStorage.setItem('qrCodeSrc', store.qrCodeSrc);
                 store.clientSocket.emit('join chatroom', { roomToken: store.roomToken });
             } else {
-                store.roomToken = ''
+                store.roomToken = '';
                 sessionStorage.setItem('roomToken', '');
-                router.push({ path: '/'});
-                alert("邀請碼不存在")
+                router.push({ path: '/' });
+                alert('邀請碼不存在');
             }
         }
     } catch (error) {
@@ -110,7 +110,7 @@ const scrollToBottom = () => {
 const handleEnter = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault(); // prevent default behavior and avoid line breaks
-        
+
         if (enterPressedOnce) {
             sendMessage();
             enterPressedOnce = false;
@@ -124,8 +124,8 @@ const handleEnter = (event) => {
 };
 
 const handleSwitch = () => {
-    showChat.value = !showChat.value
-}
+    showChat.value = !showChat.value;
+};
 
 onMounted(async () => {
     const storedMessages = sessionStorage.getItem('messages'); // get stored messages when page is refresh
@@ -142,7 +142,6 @@ onMounted(async () => {
     await nextTick();
     scrollToBottom();
 });
-
 </script>
 <template>
     <div class="row container-fluid m-0 p-0 h-100">
@@ -151,7 +150,7 @@ onMounted(async () => {
             <div class="row d-flex justify-content-center">
                 <div class="col-auto d-flex align-items-center mb-3" v-for="(userId, index) in store.members">
                     <!-- computer card -->
-                    <div 
+                    <div
                         class="card bg-transparent border-0 text-center"
                         style="width: 120px"
                         data-bs-toggle="modal"
@@ -179,8 +178,16 @@ onMounted(async () => {
                 <!-- Chat messages -->
                 <div class="messages-container px-3 py-2 overflow-auto" ref="messagesContainer">
                     <transition-group name="fade" tag="div">
-                        <div v-if="showChat" class="message d-flex flex-column" v-for="(message, index) in messages" :key="index">
-                            <div v-if="message.userId === store.user.id.slice(0, 8)" class="d-flex justify-content-end mb-3">
+                        <div
+                            v-if="showChat"
+                            class="message d-flex flex-column"
+                            v-for="(message, index) in messages"
+                            :key="index"
+                        >
+                            <div
+                                v-if="message.userId === store.user.id.slice(0, 8)"
+                                class="d-flex justify-content-end mb-3"
+                            >
                                 <div class="message-body p-2 rounded text-end float-end">
                                     {{ message.content }}
                                 </div>
@@ -195,10 +202,18 @@ onMounted(async () => {
                                 </div>
                             </div>
                         </div>
-                        <div v-else-if="!showChat && files.length === 0" class="d-flex flex-column align-items-center mt-5">
+                        <div
+                            v-else-if="!showChat && files.length === 0"
+                            class="d-flex flex-column align-items-center mt-5"
+                        >
                             No file now
                         </div>
-                        <div v-else class="message d-flex flex-column" v-for="(file, fileIndex) in files" :key="fileIndex">
+                        <div
+                            v-else
+                            class="message d-flex flex-column"
+                            v-for="(file, fileIndex) in files"
+                            :key="fileIndex"
+                        >
                             <div class="d-flex flex-column justify-content-start mb-3">
                                 <div class="message-header justify-content-between mb-1">
                                     <strong>{{ file.sender }}</strong> send at {{ file.timestamp }}
@@ -213,13 +228,14 @@ onMounted(async () => {
 
                 <!-- Message input and send button -->
                 <div v-if="showChat" class="input-group p-2">
-                    <input 
+                    <input
                         type="text"
                         v-model="messageInput"
                         class="form-control"
                         placeholder="輸入訊息～"
                         @keyup="handleEnter"
-                        @input="resizeTextarea"/>
+                        @input="resizeTextarea"
+                    />
                     <button class="btn" @click="sendMessage">Send</button>
                 </div>
                 <div v-else class="input-group p-2 justify-content-center">
@@ -230,9 +246,9 @@ onMounted(async () => {
     </div>
 
     <!-- uploadModal -->
-    <uploadModal
+    <!-- <uploadModal
         :showUploadModal="showUploadModal"
-    />
+    /> -->
 </template>
 
 <style scoped>
@@ -284,7 +300,8 @@ onMounted(async () => {
     height: 55px;
 }
 
-.fade-enter-active, .fade-leave-active {
+.fade-enter-active,
+.fade-leave-active {
     transition: all 0.3s ease;
 }
 
@@ -299,8 +316,7 @@ onMounted(async () => {
 }
 
 .btn {
-    background-color: rgba(29, 94, 225, 0.918);;
+    background-color: rgba(29, 94, 225, 0.918);
     color: rgb(255, 255, 255);
 }
-
 </style>

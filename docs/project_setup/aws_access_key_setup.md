@@ -6,21 +6,21 @@
 
 2. Create user
 
-    <img src="..\assets\aws_access_key_setup\user_create.png" width=80%>
+ <img src="..\assets\aws_access_key_setup\user_create.png" width=80%>
 
 3. User details 中 user name 用自己的名字
 
-    <img src="..\assets\aws_access_key_setup\user_name.png" width=80%>
+ <img src="..\assets\aws_access_key_setup\user_name.png" width=80%>
 
 4. Set permissions 中按照下圖設定，加入 **Clouddrop-dev** 的 User Group
 
     <img src="..\assets\aws_access_key_setup\user_permission.png" width=80%>
 
     註：目前在 Clouddrop-dev 中開放的權限為 S3 和 DynamoDB 的 Full access，未來有需要增減權限的時候要到 IAM → User Groups 中修改，不調整個別 User 的權限
-   
+
     <img src="..\assets\aws_access_key_setup\group.png" width=80%>
 
-6. 設定完後就可以 Create user
+5. 設定完後就可以 Create user
 
 ## 取得 Access Key
 
