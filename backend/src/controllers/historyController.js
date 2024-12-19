@@ -16,7 +16,8 @@ class HistoryController {
 
     history = async (req, res) => {
         logWithFileInfo('info', '----- history -----');
-        const { userID, lastKey } = req.body;
+        const { userID, lastKey } = req.query;
+
         if (!userID) {
             this._reqWithMissingValue(res, { userID });
             return;
