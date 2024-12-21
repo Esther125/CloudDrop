@@ -4,9 +4,11 @@ import { ref, reactive, onMounted, onBeforeUnmount, watch, nextTick, computed } 
 import axios from 'axios';
 import api from '@/api/api';
 import { useGlobalStore } from './stores/globals.js';
+import { useAlertStore } from '@/stores/alertStore';
 import { io as ioc } from 'socket.io-client';
 import Login from './components/LoginModal.vue';
 import Logout from './components/LogoutModal.vue';
+import ToastDisplay from './components/Notice/ToastDisplay.vue';
 
 /* ------------------------------
    Variables
@@ -24,6 +26,7 @@ const characters = reactive(['', '', '', '', '']);
 const inputRefs = ref([]);
 
 const store = useGlobalStore();
+const alertStore = useAlertStore();
 const router = useRouter();
 
 const buttonNavbarKey = computed(() => {
@@ -101,7 +104,7 @@ const joinRoom = async () => {
         roomModalInstance.hide();
         await router.push({ path: '/', query: { roomToken: inputRoomToken } });
     } else {
-        alert('邀請碼不存在');
+        alertStore.addAlert('邀請碼不存在', 'error');
     }
 };
 
@@ -197,12 +200,17 @@ const loginStatusChangeHandler = async (event) => {
 
     // setup websocket listener
     store.clientSocket.on('system message', async (res) => {
-        console.log('WebSocket - system message');
         console.log(res);
+        if (res.message.stage === 'request transfer') {
+            if (res.message.status === 'success') {
+                alertStore.addAlert('傳送成功', 'info');
+            } else {
+                alertStore.addAlert('傳送發生了一些問題，請再試一次', 'warn');
+            }
+        }
     });
 
     store.clientSocket.on('room notify', async (res) => {
-        console.log(res);
         if ((res.roomToken === store.roomToken) & (res.type === 'join')) {
             const { data } = await axios.post(`${BE_API_BASE_URL}/rooms/${store.roomToken}/members`);
             store.members = data.members;
@@ -342,6 +350,8 @@ onBeforeUnmount(() => {
             </div>
         </div>
     </nav>
+
+    <ToastDisplay />
 
     <div class="d-flex align-items-center router-view-container" id="particles-container">
         <RouterView />

@@ -15,6 +15,7 @@ class InternetFileService {
     }
 
     _generateUniqueFilename = (filename) => {
+        filename = decodeURIComponent(filename);
         const extension = path.extname(filename);
         const originalName = path.basename(filename, extension);
         return `${uuidv4()}_${originalName}${extension}`; // 檔案格式：{uuid}_{原檔名}.{附檔名}

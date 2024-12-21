@@ -1,8 +1,43 @@
 <script setup>
-import { reactive, ref } from 'vue';
+import { ref, onMounted, watch } from 'vue';
+import { useGlobalStore } from '@/stores/globals.js';
+import { useAlertStore } from '@/stores/alertStore';
 
 
 const BE_API_BASE_URL = import.meta.env.VITE_BE_API_BASE_URL;
+
+const store = useGlobalStore();
+const alertStore = useAlertStore();
+let modalInstance = null;
+
+const props = defineProps({
+    showUploadModal: Boolean,
+    receiverID: String
+})
+
+// 定義 emits
+const emit = defineEmits(['update:showUploadModal']);
+
+// 關閉 modal 的函式
+const closeModal = () => {
+    const fileInput = document.querySelector('#uploadModal input[type="file"]');
+    if (fileInput) {
+        fileInput.value = ''; // 清空檔案選擇器
+    }
+    resetPreviewState();
+    emit('update:showUploadModal', false);
+};
+
+watch(() => props.showUploadModal, (newVal) => {
+    if (modalInstance) {
+        if (newVal) {
+            // processPreview();
+            modalInstance.show();
+        } else {
+            modalInstance.hide();
+        }
+    }
+});
 
 // 用來儲存選取的檔案
 const selectedFile = ref(null);
@@ -42,10 +77,17 @@ const resetPreviewState = () => {
 };
 
 // 上傳檔案
-const uploadFile = () => {
+const uploadFile = (rec) => {
     if (selectedFile.value) {
         const formData = new FormData();
-        formData.append('uploadFile', selectedFile.value);
+        // 解決中文檔案名稱亂碼問題
+        const renamedFile = new File(
+            [selectedFile.value],
+            encodeURIComponent(selectedFile.value.name),
+            { type: selectedFile.value.type }
+        );
+
+        formData.append('uploadFile', renamedFile);
 
         fetch(`${BE_API_BASE_URL}/upload`, {
             method: 'POST',
@@ -60,28 +102,58 @@ const uploadFile = () => {
             return response.json();
         })
         .then(data => {
-            console.log('Success:', data);
-            alert('檔案上傳成功！');
+            if (rec === 'single') {
+                store.clientSocket.emit('request transfer', {
+                    roomToken: store.roomToken,
+                    fileId: data.fileId,
+                    receiverID: props.receiverID,
+                });
+                alertStore.addAlert('檔案傳送成功～', 'info');
+            } else if (rec === 'room') {
+                fetch(`${BE_API_BASE_URL}/${store.user.id}/download/staging-area/${data.fileId}?type=room&id=${store.roomToken}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Fail calling api to save to s3");
+                    }
+                    return response.json();
+                }).catch(error => {
+                    alertStore.addAlert(error.message, 'error');
+                });
+
+                store.clientSocket.emit('request transfer', {
+                    roomToken: store.roomToken,
+                    fileId: data.fileId,
+                });
+
+                alertStore.addAlert('檔案傳送成功～', 'info');
+            }
         })
         .catch(error => {
-            console.log('Error:', error);
-            alert(error.message);
+            alertStore.addAlert(error.message, 'error');
         });
     } else {
-        alert('請先選擇檔案！');
+        alertStore.addAlert('請先選擇檔案', 'error');
     }
 };
 
 // 傳送檔案
 const sendFile = () => {
-    uploadFile()
-    // to be done
+    uploadFile('single')
+    closeModal();
 };
 
 // 傳送檔案到 room
 const sendFileToRoom = () => {
-    // to be done
+    uploadFile('room')
+    closeModal();
 };
+
+onMounted(() => {
+    const modalElement = document.getElementById('uploadModal');
+    if (modalElement) {
+        modalInstance = new bootstrap.Modal(modalElement, { backdrop: 'static', keyboard: false });
+    }
+});
 
 </script>
 
@@ -118,6 +190,7 @@ const sendFileToRoom = () => {
                     </div>
                 </div>
                 <div class="modal-footer justify-content-center border-0">
+                    <button class="btn btn-secondary" type="button" @click="closeModal">取消</button>
                     <!-- 傳送按鈕 -->
                     <button class="btn btn-success" type="button" @click="sendFile">傳送</button>
                     <!-- 傳送到 room 的按鈕 -->

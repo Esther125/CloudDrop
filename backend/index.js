@@ -20,6 +20,7 @@ app.use(
     cors({
         origin: process.env.FRONTEND_BASE_URL,
         credentials: true,
+        exposedHeaders: ['Content-Disposition'], // 顯式暴露 Content-Disposition 標頭
     })
 );
 
