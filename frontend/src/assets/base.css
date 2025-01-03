@@ -125,12 +125,20 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-@media (max-width: 768px) {
+.custom-min-width {
+    min-width: 80px;
+}
+
+@media (max-width: 576px) {
     body {
         font-size: 14px; /* 手機視窗下縮小字體大小 */
     }
 
     .hide-as-phone {
-        display: none; /* 隱藏按鈕 */
+        display: none !important;/* 隱藏按鈕 */
+    }
+
+    .custom-min-width {
+        min-width: 40px;
     }
 }

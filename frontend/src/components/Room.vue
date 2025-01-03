@@ -210,7 +210,7 @@ onMounted(async () => {
 <template>
     <div class="row container-fluid m-0 p-0 h-100">
         <!-- Left Content -->
-        <div class="col-9 d-flex flex-column align-items-center justify-content-center">
+        <div class="col-11 col-sm-9 d-flex flex-column align-items-center justify-content-center">
             <div class="row d-flex justify-content-center">
                 <div class="col-auto d-flex align-items-center mb-3" v-for="(userId, index) in store.members">
                     <!-- computer card -->
@@ -231,7 +231,7 @@ onMounted(async () => {
                     </div>
                 </div>
             </div>
-            <div class="row d-flex justify-content-center mt-3">
+            <div class="row d-flex justify-content-center mt-3 hide-as-phone">
                 <button class="btn" @click="handleSwitch">{{ switchBtnText }}</button>
             </div>
             <uploadModal
@@ -244,10 +244,108 @@ onMounted(async () => {
                 :fileId="fileId"
                 @update:showDownloadModal="(val) => (showDownloadModal = val)"
             />
+            <!-- ChatCanva -->
+            <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRightChat" aria-labelledby="offcanvasRightChatLabel" data-bs-backdrop="static">
+                <div class="offcanvas-header">
+                    <h5 class="offcanvas-title" id="offcanvasRightChatLabel">聊天</h5>
+                    <i class="bi bi-x h1 close" data-bs-dismiss="offcanvas" aria-label="Close"></i>
+                </div>
+                <div class="offcanvas-body">
+                    <div class="chat-box h-100">
+                        <!-- Chat messages -->
+                        <div class="messages-container px-3 py-2 overflow-auto" ref="messagesContainer">
+                            <transition-group name="fade" tag="div">
+                                <div
+                                    class="message d-flex flex-column"
+                                    v-for="(message, index) in messages"
+                                    :key="index"
+                                >
+                                    <div v-if="message.userId === store.user.id" class="d-flex justify-content-end mb-3">
+                                        <div class="message-body p-2 rounded text-end float-end">
+                                            {{ message.content }}
+                                        </div>
+                                    </div>
+                                    <div v-else class="d-flex flex-column justify-content-start mb-3">
+                                        <div class="message-header justify-content-between">
+                                            <strong>{{ userDeviceLabel(message.userId) }}</strong>
+                                            <span></span>
+                                        </div>
+                                        <div class="message-body p-2 rounded">
+                                            {{ message.content }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </transition-group>
+                        </div>
+
+                        <!-- Message input and send button -->
+                        <div class="input-group p-2">
+                            <input
+                                type="text"
+                                v-model="messageInput"
+                                class="form-control"
+                                placeholder="輸入訊息～"
+                                @keyup="handleEnter"
+                                @input="resizeTextarea"
+                            />
+                            <button class="btn" @click="sendMessage">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FilesCanva -->
+            <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRightFiles" aria-labelledby="offcanvasRightFilesLabel" data-bs-backdrop="static">
+                <div class="offcanvas-header">
+                    <h5 class="offcanvas-title" id="offcanvasRightFilesLabel">檔案清單</h5>
+                    <i class="bi bi-x h1 close" data-bs-dismiss="offcanvas" aria-label="Close"></i>
+                </div>
+                <div class="offcanvas-body p-0">
+                    <div class="chat-box h-100">
+                        <!-- Chat messages -->
+                        <div class="messages-container px-3 py-2 overflow-auto" ref="messagesContainer">
+                            <transition-group name="fade" tag="div">
+                                <div
+                                    v-if="files.length === 0"
+                                    class="d-flex flex-column align-items-center mt-5"
+                                >
+                                    No file now
+                                </div>
+                                <div v-else class="d-flex" v-for="(file, fileIndex) in files" :key="fileIndex">
+                                    <div class="d-flex flex-column justify-content-start mb-3 w-100">
+                                        <div class="file-body p-2 rounded d-flex align-items-center">
+                                            <i :class="$getFileIcon(file.filename)" class="m-2 h1"></i>
+                                            <div class="flex-grow-1">
+                                                <a :href="file.presignedUrl" class="p-0 fw-bolder" target="_blank">
+                                                    {{ file.filename }} </a
+                                                ><br />
+                                                <small class="fw-light">
+                                                    Sent At:
+                                                    {{
+                                                        new Date(file.lastModified).toLocaleTimeString([], {
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                        })
+                                                    }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </transition-group>
+                        </div>
+
+                        <!-- Button -->
+                        <div class="input-group p-2 justify-content-center mb-2">
+                            <button class="btn" @click="getRoomStagingFile">更新檔案清單</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         <!-- Right Content - ChatRoom -->
-        <div class="col-3 chat-room p-0 d-flex flex-column">
-            <div class="chat-box flex-grow-1">
+        <div class="col-0 col-sm-3 chat-room p-0 d-flex flex-column hide-as-phone">
+            <div class="chat-box flex-grow-1 hide-as-phone">
                 <!-- Chat messages -->
                 <div class="messages-container px-3 py-2 overflow-auto" ref="messagesContainer">
                     <transition-group name="fade" tag="div">
@@ -318,6 +416,11 @@ onMounted(async () => {
                     <button class="btn" @click="getRoomStagingFile">更新檔案清單</button>
                 </div>
             </div>
+        </div>
+        <div class="col-1 col-sm-0 fix-right">
+            <!-- 固定按鈕 -->
+            <i class="bi bi-chat-right-dots h2" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRightChat" aria-controls="offcanvasRightChat"></i>
+            <i class="bi bi-list h2" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRightFiles" aria-controls="offcanvasRightFiles" @click="getRoomStagingFile"></i>
         </div>
     </div>
 </template>
@@ -402,5 +505,27 @@ onMounted(async () => {
 .btn {
     background-color: rgba(29, 94, 225, 0.918);
     color: rgb(255, 255, 255);
+}
+
+.fix-right {
+    position: fixed;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    /*z-index: 1050;  確保按鈕在前 */
+}
+
+.offcanvas {
+    background-color: var(--color-background-soft);
+    color: var(--color-text);
+}
+
+.btn-close {
+    color: var(--color-text) !important;
+}
+
+.close {
+    position: fixed;
+    right: 5px;
 }
 </style>

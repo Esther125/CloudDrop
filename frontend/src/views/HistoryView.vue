@@ -131,8 +131,8 @@ const stopWatchHeight = watch(filterRecords, async () => {
 </script>
 
 <template>
-    <div class="container-fluid d-flex flex-column m-0 py-0 px-5 h-100 w-100" style="max-width: 100vw">
-        <h2 class="m-0 pt-3 pb-0">歷史紀錄</h2>
+    <div class="container-fluid d-flex flex-column m-0 py-0 px-1 px-sm-5 h-100 w-100" style="max-width: 100vw">
+        <h2 class="m-0 pt-3 pb-0 ps-2">歷史紀錄</h2>
         <div class="d-flex gap-3 justify-content-center my-2 p-2">
             <!-- filter button -->
             <button
@@ -159,10 +159,10 @@ const stopWatchHeight = watch(filterRecords, async () => {
                 class="record-card w-100 my-2 d-flex align-items-center py-1 rounded"
             >
                 <div class="mx-3" style="width: 30px;">{{ record.index }}</div>
-                <i :class="$getFileIcon(Array(...record.fileNames)[0])" class="mx-2" style="font-size: 3rem"></i>
+                <i :class="$getFileIcon(Array(...record.fileNames)[0])" class="mx-2 h1"></i>
                 <div class="vr my-2"></div>
                 <div class="w-100 mx-3" style="overflow: hidden">
-                    <div style="font-weight: bold; font-size: 1.3rem">
+                    <div class="fw-bold text-break">
                         {{ Array(...record.fileNames)[0] }}
                     </div>
                     <div v-if="record.receiver.identifier == userID" class="mt-1 mb-2 d-flex align-items-center gap-2">
@@ -201,8 +201,8 @@ const stopWatchHeight = watch(filterRecords, async () => {
                     </div>
                 </div>
                 <div class="vr my-2"></div>
-                <div class="mx-2 text-center" style="white-space: normal; word-break: keep-all" overflow-wrap="normal">
-                    {{ new Date(record.timestamp).toLocaleString() }}
+                <div class="mx-2 text-center" style="white-space: normal; word-break: keep-all;" overflow-wrap="normal">
+                    <small>{{ new Date(record.timestamp).toLocaleString() }}</small>
                 </div>
             </div>
             <div class="text-center" v-else-if="totalTransferCount == 0">無傳輸紀錄</div>
