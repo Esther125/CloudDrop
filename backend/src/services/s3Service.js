@@ -181,6 +181,9 @@ class S3Service {
                 })
             );
 
+            // 按照時間排序
+            fileList.sort((a, b) => new Date(a.lastModified) - new Date(b.lastModified));
+
             logWithFileInfo('info', `[File List Success] Fetched ${fileList.length} files for ${type}: ${id}`);
             return {
                 files: fileList,
